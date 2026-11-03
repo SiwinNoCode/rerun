@@ -1,1 +1,12 @@
-{"signedContributors":[]}
+{
+  "signedContributors": [
+    {
+      "name": "sx4im",
+      "id": 128062316,
+      "comment_id": 6607945936,
+      "created_at": "2026-11-03T15:31:43Z",
+      "repoId": 1438656257,
+      "pullRequestNo": 16
+    }
+  ]
+}

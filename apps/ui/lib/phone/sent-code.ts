@@ -3,8 +3,7 @@ import type { VerificationChannel } from '@/lib/phone/verification'
 import type { CountryCode } from 'libphonenumber-js/min'
 
 type SentRequest = { phone: string; country: CountryCode; channel: VerificationChannel }
-// `resentAt` is when a second code left, by either channel, for the wall to offer its skip after.
-export type SentCode = { request: SentRequest; sentAt: number; resentAt?: number }
+export type SentCode = { request: SentRequest; sentAt: number }
 
 // A code out on its way survives the tab being reloaded while its owner reads it in WhatsApp: Chrome
 // on Android discards a tab left in the background, and a deploy reloads a hidden one. Kept per tab,
@@ -24,10 +23,9 @@ function storage(): Storage | null {
 
 function isSentCode(value: unknown): value is SentCode {
     if (!value || typeof value !== 'object') return false
-    const { request, sentAt, resentAt } = value as Partial<SentCode>
+    const { request, sentAt } = value as Partial<SentCode>
     return (
         typeof sentAt === 'number' &&
-        (resentAt === undefined || typeof resentAt === 'number') &&
         !!request &&
         typeof request.phone === 'string' &&
         typeof request.country === 'string' &&
@@ -48,8 +46,8 @@ export function readSentCode(key: string, now = Date.now()): SentCode | null {
     }
 }
 
-export function writeSentCode(key: string, request: SentRequest, now = Date.now(), resentAt?: number): void {
-    const sent: SentCode = { request: { phone: request.phone, country: request.country, channel: request.channel }, sentAt: now, ...(resentAt ? { resentAt } : {}) }
+export function writeSentCode(key: string, request: SentRequest, now = Date.now()): void {
+    const sent: SentCode = { request: { phone: request.phone, country: request.country, channel: request.channel }, sentAt: now }
     try {
         storage()?.setItem(storageKey(key), JSON.stringify(sent))
     } catch {}

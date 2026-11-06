@@ -41,8 +41,8 @@ const refused = <Failure extends string>(error: Failure, retryAfterSeconds?: num
     ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
 })
 
-// `phone` is E.164 already. Nobody is signed in yet, so the sends are counted per number. As in
-// startPhoneVerification, a send is counted before it leaves and given back when nothing went out.
+// `phone` is E.164 already. Nobody is signed in yet, so the sends are counted per number. A send
+// is counted before it leaves and given back when nothing went out.
 // The caller's and everybody's counts are not given back: an attempt is what they measure.
 // `account` is who asks, when someone signed in is moving to this number. `app` is set when the code is
 // asked from the iOS app rather than the web.

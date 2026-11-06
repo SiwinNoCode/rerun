@@ -5,12 +5,11 @@ import { z } from 'zod'
 
 import { type PhoneAccount } from '@/app/api/_services/phone-ownership.service'
 import { completePhoneChange, completePhoneSignIn, startPhoneChange, startPhoneSignIn, type SessionTokens } from '@/app/api/_services/phone-sign-in.service'
-import { confirmPhoneVerification, skipPhoneVerification, startPhoneVerification } from '@/app/api/_services/phone-verification.service'
+import { skipPhoneVerification } from '@/app/api/_services/phone-verification.service'
 import { callerIp } from '@/lib/auth/caller-ip'
 import { verifyTurnstile } from '@/lib/auth/turnstile'
 import { PHONE_FAILURE_MESSAGES, type PhoneFailure } from '@/lib/phone/failure-messages'
-import { countryOfE164, isPhoneCountry, toE164 } from '@/lib/phone/normalize'
-import { reachableChannels } from '@/lib/phone/reach'
+import { isPhoneCountry, toE164 } from '@/lib/phone/normalize'
 import { VERIFICATION_CODE_LENGTH, verificationLanguage, type VerificationChannel } from '@/lib/phone/verification'
 import { createClient } from '@/supabase/server'
 
@@ -30,10 +29,7 @@ const signInSendSchema = sendSchema.extend({ captchaToken: z.string().max(4096).
 
 const signInSchema = sendSchema.extend({ code: z.string().regex(new RegExp(`^\\d{${VERIFICATION_CODE_LENGTH}}$`)) })
 
-const codeSchema = z.object({ code: z.string().regex(new RegExp(`^\\d{${VERIFICATION_CODE_LENGTH}}$`)) })
-
-const unverifiableSchema = sendSchema.omit({ channel: true })
-
+const numberSchema = sendSchema.omit({ channel: true })
 
 const refused = (reason: PhoneFailure, retryAfterSeconds?: number): PhoneActionRefusal => ({
     ok: false,
@@ -58,43 +54,17 @@ async function accountUserId(): Promise<string | null> {
     return data.user && !data.user.is_anonymous ? data.user.id : null
 }
 
-export async function sendPhoneCodeAction(input: z.input<typeof sendSchema>): Promise<PhoneSendActionResult> {
-    const parsed = sendSchema.safeParse(input)
-    if (!parsed.success || !isPhoneCountry(parsed.data.country)) return invalidNumber()
-    const phone = toE164(parsed.data.phone, parsed.data.country)
-    if (!phone) return invalidNumber()
-
-    const userId = await accountUserId()
-    if (!userId) return refused('signed_out')
-
-    const result = await startPhoneVerification(userId, phone, parsed.data.channel, callerLanguage(await headers()))
-    return result.ok ? result : sendRefused(result, parsed.data)
-}
-
-export async function verifyPhoneCodeAction(input: z.input<typeof codeSchema>): Promise<PhoneActionResult> {
-    const parsed = codeSchema.safeParse(input)
-    if (!parsed.success) return refused('wrong_code')
-
-    const userId = await accountUserId()
-    if (!userId) return refused('signed_out')
-
-    const result = await confirmPhoneVerification(userId, parsed.data.code)
-    return result.ok ? result : refused(result.error)
-}
-
 export async function skipPhoneStepAction(): Promise<PhoneActionResult> {
     const userId = await accountUserId()
     if (!userId) return refused('signed_out')
     return (await skipPhoneVerification(userId)) ? { ok: true } : refused('unavailable')
 }
 
-// A number in a country no code reaches enters as it is. The country is read off the number again
-// here: one a code does reach is turned away, or anyone could pass the step without a code.
-export async function continueWithoutCodeAction(input: z.input<typeof unverifiableSchema>): Promise<PhoneActionResult> {
-    const parsed = unverifiableSchema.safeParse(input)
+// The phone wall's "Continue": the number is kept as typed, without a code.
+export async function savePhoneNumberAction(input: z.input<typeof numberSchema>): Promise<PhoneActionResult> {
+    const parsed = numberSchema.safeParse(input)
     const phone = parsed.success ? signInPhone(parsed.data) : null
     if (!phone) return invalidNumber()
-    if (reachableChannels(countryOfE164(phone), 'verify').length > 0) return refused('reachable_country')
 
     const userId = await accountUserId()
     if (!userId) return refused('signed_out')

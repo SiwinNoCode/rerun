@@ -34,12 +34,6 @@ describe('sent code', () => {
         expect(readSentCode('phone-sign-in', NOW + 30_000)).toEqual({ request: REQUEST, sentAt: NOW })
     })
 
-    it('remembers when a second code left', () => {
-        writeSentCode('phone-wall', REQUEST, NOW, NOW - 20_000)
-
-        expect(readSentCode('phone-wall', NOW)).toEqual({ request: REQUEST, sentAt: NOW, resentAt: NOW - 20_000 })
-    })
-
     it('keeps each form to its own code', () => {
         writeSentCode('phone-sign-in', REQUEST, NOW)
 

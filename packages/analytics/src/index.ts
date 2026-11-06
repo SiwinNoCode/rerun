@@ -160,12 +160,10 @@ export interface AnalyticsEventMap {
     // The wall a new account meets once it exists, whichever door it was born through. Viewed is not
     // sent: the gap between the two is the accounts that stop at the phone number.
     phone_wall_viewed: Record<string, never>
-    // "Skip for now" on the wall, offered once a second code did not come or Bird refused the number:
-    // the account enters without a number, the checklist asks again.
+    // "Skip for now" on the wall: the account enters without a number, the checklist asks again.
     phone_wall_skipped: Record<string, never>
-    // A number in a country no code reaches, taken in without one: `reach` is our own table
-    // (lib/phone/reach.ts), `bird` a country Bird Verify refused at the send.
-    phone_wall_unverifiable: { country: string; via: 'reach' | 'bird' }
+    // A number given on the wall, kept as typed without a code.
+    phone_wall_submitted: { country: string }
     phone_verification_sent: { channel: 'sms' | 'whatsapp'; context: PhoneVerificationContext }
     phone_verification_completed: { channel: 'sms' | 'whatsapp'; context: PhoneVerificationContext }
     // A "Send by…" that sent nothing: `reason` is the server's refusal, or `captcha_timeout`,

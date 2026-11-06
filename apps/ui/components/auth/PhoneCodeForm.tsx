@@ -7,7 +7,6 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { PhoneNumberInput } from '@/components/ui/phone-number-input'
 import { TooltipDisabledReason } from '@/components/ui/tooltip'
-import { isDeadEndReason } from '@/lib/phone/dead-end'
 import { countryFromLocale, countryOfE164, countryOfTyped, toE164 } from '@/lib/phone/normalize'
 import { reachableChannels } from '@/lib/phone/reach'
 import { clearSentCode, readSentCode, writeSentCode } from '@/lib/phone/sent-code'
@@ -30,8 +29,6 @@ const RESEND_COOLDOWN_MS = 60_000
 const SWITCH_COOLDOWN_MS = 20_000
 // Long enough for a code that is coming to have come: past it, the other channel is offered outright.
 const NUDGE_AFTER_MS = 30_000
-// A second code that has not come either: past this, the form offers its way around the code.
-const SKIP_AFTER_RESEND_MS = 15_000
 
 const CHANNEL_NAMES: Record<VerificationChannel, string> = { sms: 'SMS', whatsapp: 'WhatsApp' }
 
@@ -42,8 +39,6 @@ const FALLBACK_COUNTRY = countryFromLocale(undefined)
 const neverChanges = () => () => {}
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Something went wrong. Please try again.')
-
-const deadEndReasonOf = (error: unknown) => (error instanceof PhoneSendError && isDeadEndReason(error.reason) ? error.reason : null)
 
 const retryAfterMs = (error: unknown) => (error instanceof PhoneSendError && error.retryAfterSeconds ? error.retryAfterSeconds * 1000 : null)
 
@@ -68,8 +63,6 @@ export function PhoneCodeForm({
     afterPhone,
     onStepChange,
     persistKey,
-    continueWithoutCode,
-    skip,
     phoneLastUsed = false,
 }: {
     // A code already out when the form mounts, for the lab to open on the second step.
@@ -83,11 +76,6 @@ export function PhoneCodeForm({
     beforePhone?: ReactNode
     afterPhone?: ReactNode
     onStepChange?: (step: PhoneCodeStep) => void
-    // Takes in a number whose country no code reaches. Without it, such a number simply has no button.
-    continueWithoutCode?: (request: Omit<PhoneCodeRequest, 'channel'>) => Promise<void>
-    // The way around the code, only drawn once the visitor is stuck: a second code that did not come,
-    // a number Bird refuses, or one another account holds. `deadEndReason` says which refusal, if any.
-    skip?: (deadEndReason: string | null) => ReactNode
     // This number was the way in last time on this browser, badged beside the field's title.
     phoneLastUsed?: boolean
 }) {
@@ -106,9 +94,6 @@ export function PhoneCodeForm({
     const [sentAt, setSentAt] = useState(0)
     const [resendAt, setResendAt] = useState(0)
     const [switchAt, setSwitchAt] = useState(0)
-    // When the first code after the first one left, by either channel.
-    const [resentAt, setResentAt] = useState(0)
-    const [deadEndReason, setDeadEndReason] = useState<string | null>(null)
     // The wait the server asked for on the number step, for the number it refused.
     const [retryAt, setRetryAt] = useState(0)
     const [now, setNow] = useState(0)
@@ -144,7 +129,7 @@ export function PhoneCodeForm({
         if (!persistKey || initialSent) return
         const restored = readSentCode(persistKey)
         if (!restored) return
-        const { request, sentAt: restoredSentAt, resentAt: restoredResentAt } = restored
+        const { request, sentAt: restoredSentAt } = restored
         // The tab's storage only exists once hydrated: read during render, the server and the
         // browser would draw two different steps.
         // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -152,22 +137,18 @@ export function PhoneCodeForm({
         setPickedCountry(request.country)
         phoneForm.reset({ phone: request.phone })
         startWaits(restoredSentAt)
-        setResentAt(restoredResentAt ?? 0)
         goTo('code')
     }, [persistKey])
 
-    const deliver = async (request: PhoneCodeRequest, { resending }: { resending: boolean }) => {
+    const deliver = async (request: PhoneCodeRequest) => {
         setSending(request.channel)
         try {
             const channel = (await sendCode(request)) ?? request.channel
             const at = Date.now()
-            const firstResentAt = resending ? resentAt || at : 0
-            if (persistKey) writeSentCode(persistKey, { ...request, channel }, at, firstResentAt)
+            if (persistKey) writeSentCode(persistKey, { ...request, channel }, at)
             setSent({ ...request, channel })
-            setDeadEndReason(null)
             codeForm.reset({ code: '' })
             startWaits(at)
-            setResentAt(firstResentAt)
             return channel
         } finally {
             setSending(null)
@@ -181,7 +162,7 @@ export function PhoneCodeForm({
                 return
             }
             try {
-                await deliver({ phone, country, channel }, { resending: false })
+                await deliver({ phone, country, channel })
                 goTo('code')
             } catch (error) {
                 const wait = retryAfterMs(error)
@@ -189,8 +170,6 @@ export function PhoneCodeForm({
                     setRetryAt(Date.now() + wait)
                     setNow(Date.now())
                 }
-                const reason = deadEndReasonOf(error)
-                if (reason) setDeadEndReason(reason)
                 phoneForm.setError('phone', { message: errorMessage(error) })
             }
         })()
@@ -201,22 +180,7 @@ export function PhoneCodeForm({
             await verifyCode(code, sent)
             if (persistKey) clearSentCode(persistKey)
         } catch (error) {
-            const reason = deadEndReasonOf(error)
-            if (reason) setDeadEndReason(reason)
             codeForm.setError('code', { message: errorMessage(error) })
-        }
-    })
-
-    const submitWithoutCode = phoneForm.handleSubmit(async ({ phone }) => {
-        if (!continueWithoutCode) return
-        if (!toE164(phone, country)) {
-            phoneForm.setError('phone', { message: 'Enter a valid mobile number.' })
-            return
-        }
-        try {
-            await continueWithoutCode({ phone, country })
-        } catch (error) {
-            phoneForm.setError('phone', { message: errorMessage(error) })
         }
     })
 
@@ -229,13 +193,11 @@ export function PhoneCodeForm({
         if (!sent) return
         const switching = channel !== sent.channel
         try {
-            const went = await deliver({ ...sent, channel }, { resending: true })
+            const went = await deliver({ ...sent, channel })
             toast.success(`We sent a new code by ${CHANNEL_NAMES[went]}`)
         } catch (error) {
             const wait = retryAfterMs(error)
             if (wait) (switching ? setSwitchAt : setResendAt)(Date.now() + wait)
-            const reason = deadEndReasonOf(error)
-            if (reason) setDeadEndReason(reason)
             toast.error(errorMessage(error))
         }
     }
@@ -249,8 +211,6 @@ export function PhoneCodeForm({
     const sentTo = sent ? (toE164(sent.phone, sent.country) ?? sent.phone) : ''
     const canSwitch = !!sent && reachableChannels(countryOfE164(sentTo), 'verify').includes(otherChannel)
     const waitLabel = (seconds: number) => (seconds > 0 ? ` (${formatWait(seconds)})` : '')
-    const skipOffered = !!deadEndReason || (step === 'code' && resentAt > 0 && now - resentAt >= SKIP_AFTER_RESEND_MS)
-    const skipSlot = skipOffered && skip?.(deadEndReason)
 
     return (
         <StepTransition stepKey={step} direction={step === 'code' ? 1 : -1}>
@@ -263,7 +223,6 @@ export function PhoneCodeForm({
                                 event.preventDefault()
                                 const [firstChannel] = channels
                                 if (firstChannel) void submitPhone(firstChannel)
-                                else void submitWithoutCode()
                             }}
                             className="space-y-4"
                         >
@@ -293,11 +252,7 @@ export function PhoneCodeForm({
                                     </FormItem>
                                 )}
                             />
-                            {channels.length === 0 && continueWithoutCode ? (
-                                <Button type="submit" className="w-full" loading={phoneForm.formState.isSubmitting}>
-                                    Continue
-                                </Button>
-                            ) : channels.length === 0 ? (
+                            {channels.length === 0 ? (
                                 <p className="text-sm text-muted-foreground text-balance">We can&apos;t send codes to this country yet.</p>
                             ) : (
                                 <div className="space-y-2">
@@ -332,7 +287,6 @@ export function PhoneCodeForm({
                             </p>
                         </form>
                     </Form>
-                    {skipSlot}
                     {afterPhone}
                 </div>
             ) : (
@@ -404,7 +358,6 @@ export function PhoneCodeForm({
                                 </TooltipDisabledReason>
                             </div>
                         )}
-                        {skipSlot}
                     </form>
                 </Form>
             )}

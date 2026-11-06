@@ -8,7 +8,8 @@ export const PHONE_REQUIRED_MESSAGE = 'Confirm your phone number to keep going.'
 
 // Where an account stands with its phone step. `none` is an account the step was never asked of
 // (older than it, an invitee, a mobile signup), `pending` the one the wall stands in front of,
-// `unverifiable` a number in a country no code reaches, which counts as done.
+// `unverifiable` a number the wall took in without a code (the column kept its first name, from
+// when only countries no code reaches went without one), which counts as done.
 export type PhoneStatus = 'none' | 'pending' | 'skipped' | 'unverifiable' | 'verified'
 
 export const PHONE_STATUS_COLUMNS = ['verified_at', 'skipped_at', 'unverifiable_at'] as const

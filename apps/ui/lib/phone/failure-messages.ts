@@ -1,7 +1,7 @@
 import type { PhoneChangeFailure } from '@/app/api/_services/phone-sign-in.service'
 import type { PhoneVerificationFailure } from '@/app/api/_services/phone-verification.service'
 
-export type PhoneFailure = PhoneVerificationFailure | PhoneChangeFailure | 'captcha_failed' | 'signed_out' | 'reachable_country'
+export type PhoneFailure = PhoneVerificationFailure | PhoneChangeFailure | 'captcha_failed' | 'signed_out'
 
 export const PHONE_FAILURE_MESSAGES: Record<PhoneFailure, string> = {
     taken: 'This number already signs into another Rerun account.',
@@ -20,5 +20,4 @@ export const PHONE_FAILURE_MESSAGES: Record<PhoneFailure, string> = {
     busy: 'Phone sign-in is busy right now. Use email or Google instead.',
     captcha_failed: 'We could not confirm you are not a robot. Try again.',
     signed_out: 'Create your account first.',
-    reachable_country: 'We can send a code to this number. Choose SMS or WhatsApp.',
 }

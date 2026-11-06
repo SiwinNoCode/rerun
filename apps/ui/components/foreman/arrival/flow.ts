@@ -2,13 +2,13 @@ import { TRIAL_DAYS } from '@rerun/contracts'
 import type { UIMessage } from 'ai'
 
 // Someone who arrived on a template or on a shared coworker goes through the column instead of the
-// welcome card: an account, a phone code, the trial, the template's own price when it has one, then
+// welcome card: an account, a phone number, the trial, the template's own price when it has one, then
 // the install, which asks nothing of them.
 
 export const ARRIVAL_STEPS = ['account', 'phone', 'trial', 'purchase', 'installing'] as const
 export type ArrivalStep = (typeof ARRIVAL_STEPS)[number]
 
-// What the visitor counts: the phone code belongs to the account, and a free template has no
+// What the visitor counts: the phone number belongs to the account, and a free template has no
 // price of its own to pay.
 export function arrivalGestures(paid: boolean): string[] {
     return paid ? ['Account', 'Free trial', 'Template', 'Installed'] : ['Account', 'Free trial', 'Installed']
@@ -26,7 +26,7 @@ export function arrivalHeading(step: ArrivalStep, name: string): { title: string
         case 'account':
             return { title: `Put ${name} to work`, description: `Create your account and ${name} is installed for you. No setup form, no questions first.` }
         case 'phone':
-            return { title: 'Confirm your number', description: `One code, so every trial belongs to a real person. ${name} is next.` }
+            return { title: 'One last step', description: `Add your phone number. ${name} is next.` }
         case 'trial':
             return { title: `Try ${name} for ${TRIAL_DAYS} days`, description: `${name} is installed the second your trial starts.` }
         case 'purchase':

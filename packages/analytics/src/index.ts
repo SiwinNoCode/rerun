@@ -36,6 +36,7 @@ export function expertDistinctId(expert: { id: string; email?: string | null }):
 // A phone number typed to sign in, the one the wall asks of an account that already exists, or the
 // one an account moves to from its settings.
 export type PhoneVerificationContext = 'sign_in' | 'wall' | 'settings'
+export type CaptchaProvider = 'turnstile' | 'hcaptcha'
 export type PhoneDeliveryStatus = 'sent' | 'delivered' | 'undelivered' | 'failed' | 'verified'
 
 export type OnboardingArrival = 'template' | 'share' | 'prompt' | 'none'
@@ -155,6 +156,14 @@ export interface AnalyticsEventMap {
     oauth_sign_in_failed: { code: string; provider: SignupMethod | null }
     signup_field_error: { field: string; error_type: string }
     email_verification_sent: Record<string, never>
+    // A "Send code" by email that sent nothing, the counterpart of `phone_verification_failed`:
+    // `reason` is the server's refusal, `captcha_failed` / `captcha_timeout` for a robot check that
+    // turned the visitor away in the browser, `client_error` for what broke before the server answered.
+    email_verification_failed: { reason: string; captcha_provider?: CaptchaProvider; captcha_code?: string; in_app_browser?: string; message?: string }
+    // Cloudflare could not vouch for a visitor, who was handed the hCaptcha puzzle instead.
+    // `turnstile_code` is Cloudflare's client error, or `script` when its script never loaded.
+    captcha_puzzle_shown: { turnstile_reason?: string; turnstile_code?: string }
+    captcha_puzzle_solved: Record<string, never>
     // `code` is the one typed in the form, `link` the button of the same email.
     email_verification_completed: { via: 'code' | 'link'; delay_seconds?: number }
     // The wall a new account meets once it exists, whichever door it was born through. Viewed is not
@@ -171,7 +180,7 @@ export interface AnalyticsEventMap {
     // A "Send by…" that sent nothing: `reason` is the server's refusal, or `captcha_timeout`,
     // `captcha_failed`, `client_error` for what broke before it answered. `country` is the one picked
     // in the form. Sent plus failed is every click.
-    phone_verification_failed: { channel: 'sms' | 'whatsapp'; context: PhoneVerificationContext; reason: string; country: string; message?: string }
+    phone_verification_failed: { channel: 'sms' | 'whatsapp'; context: PhoneVerificationContext; reason: string; country: string; message?: string; captcha_provider?: CaptchaProvider; captcha_code?: string }
     // What Bird says became of a code once it left, from its verify.* webhook. `sent` and `delivered`
     // are per attempt, `undelivered` carries Bird's reason, `failed` means no code got out on any
     // channel, `verified` that the right one came back.

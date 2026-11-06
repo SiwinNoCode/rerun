@@ -7,7 +7,8 @@ import { type PhoneAccount } from '@/app/api/_services/phone-ownership.service'
 import { completePhoneChange, completePhoneSignIn, startPhoneChange, startPhoneSignIn, type SessionTokens } from '@/app/api/_services/phone-sign-in.service'
 import { confirmPhoneVerification, skipPhoneVerification, startPhoneVerification } from '@/app/api/_services/phone-verification.service'
 import { callerIp } from '@/lib/auth/caller-ip'
-import { verifyTurnstile } from '@/lib/auth/turnstile'
+import { verifyCaptcha } from '@/lib/auth/captcha'
+import { captchaProofSchema } from '@/lib/auth/captcha-proof'
 import { PHONE_FAILURE_MESSAGES, type PhoneFailure } from '@/lib/phone/failure-messages'
 import { countryOfE164, isPhoneCountry, toE164 } from '@/lib/phone/normalize'
 import { reachableChannels } from '@/lib/phone/reach'
@@ -26,7 +27,7 @@ const sendSchema = z.object({
     channel: z.enum(['sms', 'whatsapp']),
 })
 
-const signInSendSchema = sendSchema.extend({ captchaToken: z.string().max(4096).optional() })
+const signInSendSchema = sendSchema.extend({ captcha: captchaProofSchema.optional() })
 
 const signInSchema = sendSchema.extend({ code: z.string().regex(new RegExp(`^\\d{${VERIFICATION_CODE_LENGTH}}$`)) })
 
@@ -112,7 +113,7 @@ export async function sendPhoneSignInCodeAction(input: z.input<typeof signInSend
 
     const requestHeaders = await headers()
     const ip = callerIp(requestHeaders)
-    if (!(await verifyTurnstile(parsed.data.captchaToken, ip))) return refused('captcha_failed')
+    if (!(await verifyCaptcha(parsed.data.captcha, ip))) return refused('captcha_failed')
 
     const result = await startPhoneSignIn(phone, parsed.data.channel, ip, callerLanguage(requestHeaders))
     return result.ok ? result : sendRefused(result, parsed.data)

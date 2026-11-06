@@ -6,7 +6,8 @@ import { provisionUser } from '@/app/api/_services/user-provisioning.service'
 import { callerIp } from '@/lib/auth/caller-ip'
 import { EMAIL_PREPARATION_MESSAGES, type EmailPreparationFailure } from '@/lib/auth/email-sign-in-messages'
 import { PENDING_INVITE_COOKIE } from '@/lib/auth/pending-invite'
-import { verifyTurnstile } from '@/lib/auth/turnstile'
+import { verifyCaptcha } from '@/lib/auth/captcha'
+import { captchaProofSchema, type CaptchaProof } from '@/lib/auth/captcha-proof'
 import { drawPriceArm } from '@rerun/cloud/billing'
 import { normalizeEmail } from '@/lib/email'
 import { createClient } from '@/supabase/server'
@@ -25,7 +26,7 @@ export async function resendLiveSignInCode(email: string): Promise<{ resent: boo
     return { resent: outcome !== null, held: outcome === 'held' }
 }
 
-const prepareSchema = z.object({ email: z.string().trim().email().max(320), captchaToken: z.string().max(4096).optional() })
+const prepareSchema = z.object({ email: z.string().trim().email().max(320), captcha: captchaProofSchema.optional() })
 
 export type EmailSignInPreparation = { ok: true; created: boolean } | { ok: false; error: string; reason: EmailPreparationFailure }
 
@@ -33,9 +34,9 @@ const preparationRefused = (reason: EmailPreparationFailure) => ({ ok: false as 
 
 // What every ask for a code goes through before Supabase hears of it: the robot check, then the pace
 // of the network behind the caller. `null` when the caller may go on.
-async function refuseCodeAsk(captchaToken: string | undefined): Promise<{ ip: string; refusal: EmailPreparationFailure | null }> {
+async function refuseCodeAsk(captcha: CaptchaProof | undefined): Promise<{ ip: string; refusal: EmailPreparationFailure | null }> {
     const ip = callerIp(await headers())
-    if (!(await verifyTurnstile(captchaToken, ip))) return { ip, refusal: 'captcha_failed' }
+    if (!(await verifyCaptcha(captcha, ip))) return { ip, refusal: 'captcha_failed' }
     if (!(await claimEmailCodeAsk(ip))) return { ip, refusal: 'too_many_codes' }
     return { ip, refusal: null }
 }
@@ -45,7 +46,7 @@ export async function prepareEmailSignIn(input: z.input<typeof prepareSchema>): 
     const parsed = prepareSchema.safeParse(input)
     if (!parsed.success) return preparationRefused('invalid_email')
 
-    const { ip, refusal } = await refuseCodeAsk(parsed.data.captchaToken)
+    const { ip, refusal } = await refuseCodeAsk(parsed.data.captcha)
     if (refusal) return preparationRefused(refusal)
 
     const result = await ensureEmailAccount(normalizeEmail(parsed.data.email), ip)
@@ -62,7 +63,7 @@ export async function prepareAnonymousEmailStep(input: z.input<typeof prepareSch
     const parsed = prepareSchema.safeParse(input)
     if (!parsed.success) return preparationRefused('invalid_email')
 
-    const { refusal } = await refuseCodeAsk(parsed.data.captchaToken)
+    const { refusal } = await refuseCodeAsk(parsed.data.captcha)
     if (refusal) return preparationRefused(refusal)
 
     const lookup = await lookupEmailForSignUp(normalizeEmail(parsed.data.email))

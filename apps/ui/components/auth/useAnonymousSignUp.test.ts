@@ -28,7 +28,7 @@ vi.mock('@/lib/auth/oauth-providers', () => ({ ENABLED_OAUTH_PROVIDERS: [], isOA
 vi.mock('@/stores/onboarding.store', () => ({ useOnboardingStore: (select: (s: { markResume: () => void }) => unknown) => select({ markResume: () => {} }) }))
 vi.mock('@/supabase/client', () => ({ createClient: () => ({ auth: {} }) }))
 vi.mock('@/supabase/session/SessionProvider', () => ({ useOptionalSession: () => null }))
-vi.mock('@rerun/analytics/client', () => ({ setSharedCookie: vi.fn() }))
+vi.mock('@rerun/analytics/client', () => ({ setSharedCookie: vi.fn(), track: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 
 const SITE_KEY = '1x00000000000000000000AA'

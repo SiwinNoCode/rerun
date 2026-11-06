@@ -3,7 +3,7 @@
 import { sendPhoneSignInCodeAction, verifyPhoneSignInCodeAction } from '@/app/api/_actions/phone.actions'
 import { PhoneCodeForm, type PhoneCodeRequest, type PhoneCodeStep } from '@/components/auth/PhoneCodeForm'
 import { sendPhoneCode } from '@/components/auth/phone-send'
-import { useTurnstile } from '@/components/auth/useTurnstile'
+import { useCaptcha } from '@/components/auth/captcha/useCaptcha'
 import { rememberSignInMethod } from '@/lib/auth/last-sign-in'
 import { detectInAppBrowser } from '@/lib/in-app-browser'
 import { cn } from '@/lib/utils'
@@ -27,11 +27,11 @@ export function PhoneSignIn({
     afterPhone?: ReactNode
     phoneLastUsed?: boolean
 }) {
-    const { containerRef, challenging, getToken } = useTurnstile()
+    const { containerRef, challenging, getToken } = useCaptcha()
 
     const sendCode = async (request: PhoneCodeRequest) => {
         track('signup_method_selected', { method: 'phone', in_app_browser: detectInAppBrowser(navigator.userAgent) ?? undefined })
-        return sendPhoneCode('sign_in', request, async () => sendPhoneSignInCodeAction({ ...request, captchaToken: await getToken() }))
+        return sendPhoneCode('sign_in', request, async () => sendPhoneSignInCodeAction({ ...request, captcha: await getToken() }))
     }
 
     const verifyCode = async (code: string, request: PhoneCodeRequest) => {

@@ -3,7 +3,9 @@
 import { completeSignupAction, prepareAnonymousEmailStep, resendLiveSignInCode } from '@/app/(authflow)/auth/actions'
 import { AuthMethods } from '@/components/auth/AuthMethods'
 import type { AuthMethod } from '@/lib/auth/auth-method'
-import { AnonymousEmailStep, type GetCaptchaToken } from '@/components/auth/AnonymousEmailStep'
+import { AnonymousEmailStep } from '@/components/auth/AnonymousEmailStep'
+import type { GetCaptchaToken } from '@/components/auth/captcha/captcha-error'
+import { EmailSendError, trackEmailSend } from '@/components/auth/email-send'
 import { OAuthSignInButton } from '@/components/auth/OAuthSignInButton'
 import { PHONE_ENABLED } from '@rerun/cloud/phone'
 import { PhoneSignIn } from '@rerun/cloud/phone.client'
@@ -46,22 +48,23 @@ export function useAnonymousSignUp({ surface, active, onEntered }: { surface: Si
         setMovedOn(false)
     }
 
-    const sendCode = async (email: string, getToken: GetCaptchaToken) => {
-        const prepared = await prepareAnonymousEmailStep({ email, captchaToken: await getToken() })
-        if (!prepared.ok) throw new Error(prepared.error)
-        const { exists } = prepared
-        emailIsNew.current = !exists
-        if (!exists) setSharedCookie(SIGNUP_INTENT_COOKIE, 'email', 1)
-        const live = await resendLiveSignInCode(email)
-        if (live.resent) return live.held ? 'held' : undefined
-        if (exists) {
-            const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } })
+    const sendCode = (email: string, getToken: GetCaptchaToken) =>
+        trackEmailSend(async () => {
+            const prepared = await prepareAnonymousEmailStep({ email, captcha: await getToken() })
+            if (!prepared.ok) throw new EmailSendError(prepared.error, prepared.reason)
+            const { exists } = prepared
+            emailIsNew.current = !exists
+            if (!exists) setSharedCookie(SIGNUP_INTENT_COOKIE, 'email', 1)
+            const live = await resendLiveSignInCode(email)
+            if (live.resent) return live.held ? 'held' : undefined
+            if (exists) {
+                const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } })
+                if (error) throw error
+                return
+            }
+            const { error } = await supabase.auth.updateUser({ email })
             if (error) throw error
-            return
-        }
-        const { error } = await supabase.auth.updateUser({ email })
-        if (error) throw error
-    }
+        })
 
     // Existing account: sign in. The anonymous workspace is left behind; the parked draft is replayed
     // on the account the user just signed into. New account: the code confirms the email the anonymous

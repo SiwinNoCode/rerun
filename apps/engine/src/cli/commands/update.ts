@@ -22,7 +22,9 @@ import {
     requireFreeSpace,
     rollbackRelease,
     sweepLegacyCheckout,
+    sweepRootCaches,
     switchCurrent,
+    trimRootFilesystem,
     verifyRelease,
 } from './release.js'
 
@@ -324,6 +326,17 @@ async function updateFromArtifact(layout: Layout, artifact: Artifact, noRestart:
         process.stdout.write(`current -> releases/${artifact.commit}${previous ? ` (previous: ${basename(previous)})` : ''}\n`)
         for (const path of installLayout(root)) process.stdout.write(`wrote ${path}\n`)
         for (const name of pruneReleases(root)) process.stdout.write(`removed release ${name}\n`)
+        try {
+            for (const path of sweepRootCaches()) process.stdout.write(`removed cache ${path}\n`)
+        } catch (err) {
+            continuing('root cache sweep', err)
+        }
+        try {
+            trimRootFilesystem()
+            process.stdout.write('trimmed /\n')
+        } catch (err) {
+            continuing('fstrim', err)
+        }
         writeLastUpdate({ status: 'restarting', commit: artifact.commit })
     } catch (err) {
         rmSync(tmp, { recursive: true, force: true })

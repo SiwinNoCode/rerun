@@ -8,8 +8,7 @@
     "files": [
         "dist",
         "assets",
-        "patches",
-        "scripts"
+        "patches"
     ],
     "scripts": {
         "dev": "tsx watch --env-file-if-exists=.env src/cli/bin.ts run",

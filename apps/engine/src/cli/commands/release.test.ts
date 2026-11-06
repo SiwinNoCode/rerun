@@ -30,8 +30,11 @@ const {
     pruneReleases,
     requireFreeSpace,
     rollbackRelease,
+    ROOT_CACHE_DIRS,
     sweepLegacyCheckout,
+    sweepRootCaches,
     switchCurrent,
+    trimRootFilesystem,
     verifyRelease,
 } = await import('./release.js')
 
@@ -241,6 +244,32 @@ describe('sweepLegacyCheckout', () => {
         writeFileSync(resolve(dir, 'notes.txt'), '')
         expect(sweepLegacyCheckout(dir, root())).toEqual([])
         expect(existsSync(resolve(dir, 'notes.txt'))).toBe(true)
+    })
+})
+
+describe('sweepRootCaches', () => {
+    it('removes root-owned caches in one rm, without looking for them first', () => {
+        rootCalls.length = 0
+        expect(sweepRootCaches(['/root/.npm', '/root/.cache'])).toEqual(['/root/.npm', '/root/.cache'])
+        expect(rootCalls).toEqual([{ line: 'rm -rf /root/.npm /root/.cache', input: undefined }])
+    })
+
+    it('targets the pnpm store, the npm cache and the corepack cache of root by default', () => {
+        rootCalls.length = 0
+        sweepRootCaches()
+        expect(rootCalls[0]?.line).toBe('rm -rf /root/.local/share/pnpm /root/.npm /root/.cache/node')
+    })
+
+    it('leaves the rest of /root/.cache alone: a service running as root keeps its Chromium there', () => {
+        expect(ROOT_CACHE_DIRS).not.toContain('/root/.cache')
+    })
+})
+
+describe('trimRootFilesystem', () => {
+    it('discards the freed blocks of / as root', () => {
+        rootCalls.length = 0
+        trimRootFilesystem()
+        expect(rootCalls).toEqual([{ line: 'fstrim --quiet-unsupported /', input: undefined }])
     })
 })
 

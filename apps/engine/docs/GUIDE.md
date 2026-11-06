@@ -376,14 +376,6 @@ docker run -p 3000:3000 -v rerun-data:/app/data -e RERUN_API_KEY=secret rerun-en
 
 The image is a single Node process; `/app/data` is a volume so agents and the database persist across restarts.
 
-### VPS (systemd)
-
-```bash
-RERUN_DIR=/opt/rerun-engine scripts/install.sh
-```
-
-This installs Node 22 + pnpm if needed, builds, migrates, and writes/enables a `rerun.service` systemd unit that runs `rerun run` and restarts on failure. Put instance env (port, `RERUN_API_KEY`, …) in `/opt/rerun-engine/.env`.
-
 ---
 
 ## 15. End-to-end test

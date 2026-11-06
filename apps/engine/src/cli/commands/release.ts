@@ -168,6 +168,24 @@ export function sweepLegacyCheckout(root: string, home: string = homedir()): str
     return removed
 }
 
+// The git-era installer ran pnpm and npm as root, and `update-cli-tools` still fills root's npm
+// cache: ~2.4 GiB a box never reads again. Only the node caches of /root/.cache go: when the service
+// runs as root, /root/.cache is its own home and holds the patchright Chromium (ms-playwright).
+// There is no existence check, `rm -rf` is the check.
+export const ROOT_CACHE_DIRS = ['/root/.local/share/pnpm', '/root/.npm', '/root/.cache/node'] as const
+
+export function sweepRootCaches(dirs: readonly string[] = ROOT_CACHE_DIRS): string[] {
+    asRoot(['rm', '-rf', ...dirs])
+    return [...dirs]
+}
+
+// A box only hands freed blocks back to the host's thin volume on a discard: without it, the
+// release just pruned stays allocated on the host until the guest's weekly fstrim. A filesystem
+// without discard (a VPS, LVM without issue_discards) is not an error worth a line at every update.
+export function trimRootFilesystem(): void {
+    asRoot(['fstrim', '--quiet-unsupported', '/'])
+}
+
 export type LayoutOptions = { service: string; user: string; config: string; node: string }
 
 // The installer runs as root and names the account the service runs under; an update runs as that

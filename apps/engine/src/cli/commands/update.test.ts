@@ -310,6 +310,8 @@ describe('updateCommand from an artifact', () => {
         `<switchCurrent ${RELEASE_ROOT} ${TARGET}>`,
         `<installLayout ${RELEASE_ROOT}>`,
         `<prune ${RELEASE_ROOT}>`,
+        'sudo -n rm -rf /root/.local/share/pnpm /root/.npm /root/.cache/node',
+        'sudo -n fstrim --quiet-unsupported /',
     ]
 
     it('downloads, verifies, migrates and installs with the new release, swaps current, then restarts', async () => {
@@ -335,9 +337,31 @@ describe('updateCommand from an artifact', () => {
         state.layout = RELEASE_LAYOUT
         await updateCommand([...ARTIFACT_ARGS, '--bytes', '1000', '--no-restart'])
         expect(state.calls).toContain(`<requireFreeSpace ${RELEASES} 1000>`)
-        expect(state.calls.at(-1)).toBe(`<prune ${RELEASE_ROOT}>`)
+        expect(state.calls.slice(-3)).toEqual([`<prune ${RELEASE_ROOT}>`, 'sudo -n rm -rf /root/.local/share/pnpm /root/.npm /root/.cache/node', 'sudo -n fstrim --quiet-unsupported /'])
         expect(out).toContain('skipping restart (--no-restart)')
         expect(readLastUpdate()).toMatchObject({ status: 'restarting' })
+    })
+
+    it('reports the freed caches and the trim, after the prune', async () => {
+        state.layout = RELEASE_LAYOUT
+        await updateCommand(ARTIFACT_ARGS)
+        expect(out).toContain('removed cache /root/.local/share/pnpm\nremoved cache /root/.npm\nremoved cache /root/.cache/node\n')
+        expect(out).toContain('trimmed /\n')
+        expect(out.indexOf('trimmed /')).toBeGreaterThan(out.indexOf('removed cache /root/.cache/node'))
+        expect(out.indexOf('trimmed /')).toBeLessThan(out.indexOf('restarted rerun'))
+    })
+
+    it('still switches and restarts on the new release when the cache sweep and the trim both fail', async () => {
+        state.layout = RELEASE_LAYOUT
+        state.failing = ['sudo -n rm -rf /root/', 'sudo -n fstrim']
+        await updateCommand(ARTIFACT_ARGS)
+
+        expect(state.calls).toEqual([...happyPath, 'command -v systemctl', 'command -v sudo', 'sudo systemctl restart rerun'])
+        expect(existsSync(TARGET)).toBe(true)
+        expect(readLastUpdate()).toMatchObject({ status: 'restarting', commit: COMMIT })
+        expect(out).toContain('root cache sweep failed (continuing): sudo exited with 1')
+        expect(out).toContain('fstrim failed (continuing): sudo exited with 1')
+        expect(out).not.toContain('trimmed /')
     })
 
     it('takes a checkout to the release layout on its first artifact, without sweeping the checkout', async () => {

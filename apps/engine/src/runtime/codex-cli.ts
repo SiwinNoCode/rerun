@@ -5,7 +5,7 @@ import { env } from '../config/env.js'
 import { detectLayout } from './layout.js'
 
 // The one Codex every box runs, installed by `rerun update-cli-tools` from the release that names it.
-// scripts/install.sh and the Dockerfile carry the same version (codex-cli.test.ts holds them to it).
+// The installer of Rerun Cloud's boxes and the Dockerfile carry the same version (codex-cli.test.ts holds them to it).
 // The subscription is only ever as capable as this binary: a model it has never heard of is refused.
 export const CODEX_VERSION = '0.166.0'
 

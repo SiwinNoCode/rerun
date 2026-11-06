@@ -1,0 +1,75 @@
+#!/bin/sh
+# Every branch pushed to the public repository is public at once, so a vulnerability fix never goes
+# there: it goes to the private fork of a GitHub security advisory (`pnpm security:start`, see
+# .claude/skills/security-fix). This hook only reads words, `--no-verify` skips it: the real lock is
+# the push URL `security:start` breaks in the workspace of the fix.
+
+remote_name="$1"
+push_url="$2"
+fetch_url=$(git remote get-url "$remote_name" 2>/dev/null || true)
+
+points_to_public_repo() {
+    printf '%s\n' "$1" | grep -Eiq 'github\.com[:/]rerun-build/rerun(\.git)?/?$'
+}
+
+if ! points_to_public_repo "$push_url" && ! points_to_public_repo "$fetch_url"; then
+    exit 0
+fi
+
+advisory=$(git config --get rerun.securityAdvisory 2>/dev/null || true)
+if [ -n "$advisory" ]; then
+    echo "Push refused: this workspace holds the fix of $advisory, it never pushes to the public repository." >&2
+    echo "Push to the advisory's private fork instead: git push" >&2
+    exit 1
+fi
+
+if [ "$ALLOW_PUBLIC_PUSH" = "1" ]; then
+    exit 0
+fi
+
+SENSITIVE='(^|[^[:alnum:]_])(security|vulns?|vulnerabilit(y|ies)|vulnerable|cve-[0-9]+|ghsa(-[[:alnum:]]+)+|xss|csrf|ssrf|rce|idor|sqli|injection|traversal|bypass(es|ed)?|exploit(s|able|ed)?|privilege escalation|leak(s|ed)?)([^[:alnum:]_]|$)'
+
+is_deletion() {
+    case "$1" in
+        *[!0]*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+excluded_remotes='*'
+if [ -n "$(git for-each-ref --count=1 "refs/remotes/$remote_name/")" ]; then
+    excluded_remotes="$remote_name"
+fi
+
+new_commit_messages() {
+    if ! is_deletion "$2" && git cat-file -e "$2" 2>/dev/null; then
+        git log --format=%B "$2..$1"
+    else
+        git log --format=%B "$1" --not --remotes="$excluded_remotes"
+    fi
+}
+
+findings=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+    is_deletion "$local_sha" && continue
+    names=$(printf '%s\n%s\n' "${local_ref#refs/heads/}" "${remote_ref#refs/heads/}")
+    hits=$( (printf '%s\n' "$names"; new_commit_messages "$local_sha" "$remote_sha") | grep -Ei "$SENSITIVE" | sort -u)
+    if [ -n "$hits" ]; then
+        findings="$findings$hits
+"
+    fi
+done
+
+if [ -z "$findings" ]; then
+    exit 0
+fi
+
+{
+    echo "Push refused: it goes to the public repository rerun-build/rerun and mentions a vulnerability:"
+    printf '%s' "$findings" | sed 's/^/    /'
+    echo
+    echo "Everything pushed there is public at once, branches included. A vulnerability fix goes to the"
+    echo "private fork of a GitHub security advisory: run \`pnpm security:start \"<title>\"\` in a workspace of its own."
+    echo "Not a vulnerability fix? Push again with ALLOW_PUBLIC_PUSH=1."
+} >&2
+exit 1

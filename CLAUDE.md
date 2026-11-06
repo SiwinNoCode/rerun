@@ -110,3 +110,11 @@ of `apps/ui/vitest.config.ts` for the tests. A checkout without `cloud/` builds 
 
 The repository is public: commit messages, pull request titles and descriptions are written in
 English, whatever the language of the conversation.
+
+# Security fixes
+
+Every branch pushed to `origin` is public at once, even without a pull request. A vulnerability fix
+never goes there: it starts with `pnpm security:start "<title>"` in a workspace of its own, which opens
+a draft GitHub security advisory and its private fork and locks the workspace's push to that fork.
+Follow the `security-fix` skill. In that workspace, never use the GitHub MCP write tools: they bypass
+git and its lock.

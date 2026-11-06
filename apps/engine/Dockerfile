@@ -7,8 +7,8 @@ WORKDIR /app
 
 FROM base AS build
 COPY . .
-RUN --mount=type=cache,id=rerun-pnpm-store,target=/pnpm-store \
-    pnpm install --frozen-lockfile --store-dir /pnpm-store --filter rerun-engine...
+# Use Docker layer caching; Railway requires service-specific IDs for cache mounts.
+RUN pnpm install --frozen-lockfile --store-dir /pnpm-store --filter rerun-engine...
 RUN pnpm --filter @rerun/contracts build && pnpm --filter rerun-engine build
 RUN pnpm --filter rerun-engine deploy --prod /out
 

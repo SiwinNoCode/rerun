@@ -1,0 +1,62 @@
+name: Version
+
+# Every push to master that ships something publishes the next open source version: the engine
+# image first, then the tag and its GitHub Release, so a release never points at a missing image.
+# scripts/release/next-version.mjs picks the number and writes the notes.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: version
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    # Runs in the open source repository only, not in a private clone of it.
+    if: github.repository == 'rerun-build/rerun'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.next.outputs.tag }}
+      sha: ${{ steps.next.outputs.sha }}
+      notes: ${{ steps.next.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: next
+        run: node scripts/release/next-version.mjs --to "$GITHUB_SHA" --github-output
+
+  image:
+    needs: plan
+    if: needs.plan.outputs.tag != ''
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.plan.outputs.tag }}
+      sha: ${{ needs.plan.outputs.sha }}
+    permissions:
+      contents: read
+      packages: write
+
+  publish:
+    needs: [plan, image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          NOTES: ${{ needs.plan.outputs.notes }}
+        run: |
+          printf '%s\n' "$NOTES" > notes.md
+          gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$SHA" --title "$TAG" --notes-file notes.md

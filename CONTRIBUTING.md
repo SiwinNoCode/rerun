@@ -74,7 +74,6 @@ exports are unlikely to be merged.
 
 1. Open an issue first for anything bigger than a fix, so we agree on the direction.
 2. Keep a pull request to one change, with tests where the code has them.
-3. Sign the [CLA](CLA.md) when the bot asks: once, for all your contributions.
 
 Rerun is developed in a private repository that Rerun Cloud deploys from, and this repository is
 published from it at each release. A merged pull request is applied there with its author kept,

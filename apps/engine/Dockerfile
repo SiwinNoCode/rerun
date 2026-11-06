@@ -32,7 +32,7 @@ ENV PATH="/home/rerun/.local/bin:${PATH}" \
     RERUN_HOST=0.0.0.0 \
     RERUN_PORT=3000 \
     RERUN_CODEX_PATH=/usr/local/bin/codex
-VOLUME /data
+# Persistent /data is mounted by Railway's service configuration.
 EXPOSE 3000
 USER root
 COPY --chmod=755 apps/engine/scripts/railway-entrypoint.sh /usr/local/bin/rerun-entrypoint

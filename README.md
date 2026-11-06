@@ -212,6 +212,56 @@ Same product, same code. Rerun Cloud is this Rerun, hosted, plus what only a hos
 | Support | Community | ✅ |
 | Price | Free forever | [See plans](https://rerun.build/pricing) |
 
+## 💜 Our partners
+
+Part of Rerun Cloud runs on two partners: LinkedIn, WhatsApp and paid data. Their integrations
+live in this repository, in the open.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="https://treg.to"><img alt="Treg" title="Treg" src=".github/assets/logos/treg.svg" width="48"></a><br />
+      <a href="https://treg.to"><strong>Treg</strong></a><br />
+      <sub>One key for 4,100+ data tools across 126 providers, paid per call</sub>
+      <br /><br />
+      Powers <strong>paid data</strong>. A coworker finds people and leads, companies, search results, SEO
+      figures and public profiles on LinkedIn, TikTok, Instagram, X, YouTube, Facebook and Reddit,
+      all through one <code>paid_data</code> tool. Treg picks the provider and tries the next one on a miss.
+      <br /><br />
+      <sub><code>apps/ui/lib/paid-data</code> · <code>packages/contracts/src/paid-data.ts</code></sub>
+    </td>
+    <td width="50%" valign="top">
+      <a href="https://linkupapi.com"><img alt="Linkup" title="Linkup" src=".github/assets/logos/linkup.svg" width="48"></a><br />
+      <a href="https://linkupapi.com"><strong>Linkup</strong></a><br />
+      <sub>The outreach API for AI agents: LinkedIn, email, WhatsApp, iMessage</sub>
+      <br /><br />
+      Powers the <strong>LinkedIn and WhatsApp apps</strong>. A coworker gets a real account: it searches
+      people, sends invitations and messages, posts and comments, and wakes up the moment someone
+      replies or accepts.
+      <br /><br />
+      <sub><code>apps/ui/lib/apps/linkup</code> · <code>apps/ui/lib/apps/linkedin</code> · <code>apps/ui/lib/apps/whatsapp</code></sub>
+    </td>
+  </tr>
+</table>
+
+## 🎓 Rerun Experts
+
+Need a coworker built around your business, or a hand to set Rerun up? Rerun Experts are vetted
+builders, freelancers and studios who design, ship and run AI coworkers on Rerun.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="https://rerun.build/community/experts?utm_source=github&amp;utm_medium=readme"><strong>🔎 Hire an expert</strong></a><br />
+      <sub>Browse the directory by skill and location, and send your request from the site</sub>
+    </td>
+    <td width="50%" valign="top">
+      <a href="https://rerun.build/community/experts/program?utm_source=github&amp;utm_medium=readme"><strong>🛠️ Become an expert</strong></a><br />
+      <sub>Get listed, build for your clients in a free sandbox, keep 95% of your template sales and earn 20% on every client you bring</sub>
+    </td>
+  </tr>
+</table>
+
 ## 🧩 How it fits together
 
 ```mermaid

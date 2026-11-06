@@ -62,7 +62,7 @@ export async function reactivateAgentsAfterRestore(workspaceId: number): Promise
     return waking
 }
 
-export const NO_FREE_SLOT_ERROR = 'No free coworker slot on your plan. Add a coworker pack, or delete a coworker to make room.'
+export const NO_FREE_SLOT_ERROR = 'No free coworker slot on your plan. Start Pro for unlimited coworkers, or delete a coworker to make room.'
 const TEMPLATE_REVOKED_ERROR = 'This coworker came from a template subscription that has ended. Buy the template again to bring it back.'
 
 // The only way an agent is ever switched back on. There is no matching "deactivate": the plan

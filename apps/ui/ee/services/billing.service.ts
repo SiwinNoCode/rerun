@@ -49,7 +49,7 @@ import {
     basePriceId,
     intervalOfItems,
     isBasePriceId,
-    isLegacySeatPriceId,
+    isLegacyPlanItemPriceId,
     isYearlyBasePriceId,
     legacyBaseDiscountCents,
     priceArmOfItems,
@@ -424,7 +424,9 @@ function planTarget(session: Stripe.Checkout.Session): PlanSelection | null {
     if (!raw) return null
     try {
         const parsed = JSON.parse(raw) as PlanSelection
-        const target = { quantities: { ...ZERO_QUANTITIES, ...parsed.quantities }, interval: parsed.interval }
+        // Only the add-ons still sold: a session opened before the agent pack was retired still carries it.
+        const quantities = Object.fromEntries(ADDON_KEYS.map(key => [key, parsed.quantities?.[key] ?? ZERO_QUANTITIES[key]])) as AddonQuantities
+        const target = { quantities, interval: parsed.interval }
         assertValidSelection(target)
         return target
     } catch {
@@ -504,12 +506,9 @@ export type SubscriptionState = {
     // Flat amount taken off the list price on every invoice of the current interval, for a workspace
     // grandfathered on a legacy base price or holding a permanent promo on the whole subscription.
     monthlyDiscountCents: number
-    // A permanent promo sitting on the agent pack item alone, a pack given for free: it only takes
-    // off what the packs bill, and goes with the item. Read through planDiscountCents.
-    agentPackDiscountCents: number
     // Columns that are currently higher than what the live subscription pays for: a
     // downgrade landing at the next renewal.
-    pendingDowngrade: Partial<Pick<WorkspaceLimitColumns, 'max_agents' | 'rerun_budget_micros'>>
+    pendingDowngrade: Partial<Pick<WorkspaceLimitColumns, 'rerun_budget_micros'>>
     periodEnd: string | null
     card: SavedCard | null
     // What the next invoice bills, tax included. null once the plan is set to end.
@@ -547,19 +546,6 @@ function permanentDiscountCents(subscription: Stripe.Subscription): number {
     }, 0)
 }
 
-// Stripe expands four levels at most, one short of an item discount's coupon: it is fetched apart.
-async function agentPackDiscountCents(subscription: Stripe.Subscription): Promise<number> {
-    const item = subscription.items.data.find(item => addonForPriceId(item.price?.id) === 'agent_pack')
-    const coupons = await Promise.all(
-        (item?.discounts ?? []).map(discount => {
-            const coupon = typeof discount === 'string' ? null : discount.source?.coupon
-            if (!coupon) return null
-            return typeof coupon === 'string' ? stripe.coupons.retrieve(coupon) : coupon
-        }),
-    )
-    return coupons.reduce((sum, coupon) => sum + permanentCouponCents(coupon), 0)
-}
-
 // Live subscription state for the billing dialog: current paid quantities plus any
 // downgrade held until renewal (workspace columns higher than the derived limits).
 export async function getSubscriptionState(): Promise<SubscriptionState | null> {
@@ -568,13 +554,13 @@ export async function getSubscriptionState(): Promise<SubscriptionState | null> 
     const { data: workspace } = await selectSingle(
         supabase,
         'workspaces',
-        ['stripe_subscription_id', 'subscription_status', 'current_period_end', 'max_agents', 'max_seats', 'rerun_budget_micros'] as const,
+        ['stripe_subscription_id', 'subscription_status', 'current_period_end', 'rerun_budget_micros'] as const,
         { id: workspaceId },
     )
     if (!workspace?.stripe_subscription_id) return null
 
     const subscription = await stripe.subscriptions.retrieve(workspace.stripe_subscription_id, {
-        expand: ['discounts.source.coupon', 'items.data.discounts', 'customer.invoice_settings.default_payment_method', 'default_payment_method'],
+        expand: ['discounts.source.coupon', 'customer.invoice_settings.default_payment_method', 'default_payment_method'],
     })
     const { hasBase, quantities } = quantitiesFromItems(subscription.items.data)
     if (!hasBase) return null
@@ -585,14 +571,12 @@ export async function getSubscriptionState(): Promise<SubscriptionState | null> 
 
     const derived = quantitiesToColumns(quantities)
     const pendingDowngrade: SubscriptionState['pendingDowngrade'] = {}
-    if (workspace.max_agents === null || (derived.max_agents !== null && workspace.max_agents > derived.max_agents)) pendingDowngrade.max_agents = derived.max_agents
     if (subscription.status !== 'trialing' && workspace.rerun_budget_micros > derived.rerun_budget_micros) pendingDowngrade.rerun_budget_micros = derived.rerun_budget_micros
 
-    const [pendingSwitch, nextInvoice, openInvoice, packDiscountCents] = await Promise.all([
+    const [pendingSwitch, nextInvoice, openInvoice] = await Promise.all([
         readPendingSwitch(subscription),
         subscription.cancel_at_period_end ? null : readNextInvoice(subscription),
         subscription.status === 'past_due' ? readOpenInvoice(subscription) : null,
-        agentPackDiscountCents(subscription),
     ])
 
     return {
@@ -603,7 +587,6 @@ export async function getSubscriptionState(): Promise<SubscriptionState | null> 
         priceArm: priceArmOfItems(subscription.items.data),
         pendingSwitch,
         monthlyDiscountCents: permanentDiscountCents(subscription) + legacyBaseDiscountCents(subscription.items.data),
-        agentPackDiscountCents: packDiscountCents,
         pendingDowngrade,
         periodEnd: workspace.current_period_end,
         card: savedCard(paymentMethod),
@@ -1006,8 +989,8 @@ export async function requestRenewalReminder(): Promise<string> {
 // --- Plan changes from the plan dialog: agents and interval together ---
 
 // Every plan item moved onto `selection`: the base and add-on items keep their ids and change price,
-// add-ons appear or go, and a legacy seat item goes with the old interval, since a subscription bills
-// every item on the same one.
+// add-ons appear or go, and a legacy seat or agent pack item goes with the old interval, since a
+// subscription bills every item on the same one.
 function replacementItems(subscription: Stripe.Subscription, { quantities, interval }: PlanSelection): PlanItemChange[] {
     const priceArm = priceArmOfItems(subscription.items.data)
     const changes: PlanItemChange[] = []
@@ -1024,7 +1007,7 @@ function replacementItems(subscription: Stripe.Subscription, { quantities, inter
             changes.push({ id: item.id, price: priceIdForAddon(addon, interval), quantity: quantities[addon] })
             continue
         }
-        if (addon || isLegacySeatPriceId(priceId)) changes.push({ id: item.id, deleted: true })
+        if (addon || isLegacyPlanItemPriceId(priceId)) changes.push({ id: item.id, deleted: true })
     }
     for (const key of ADDON_KEYS) {
         if (quantities[key] > 0 && !kept.has(key)) changes.push({ price: priceIdForAddon(key, interval), quantity: quantities[key] })

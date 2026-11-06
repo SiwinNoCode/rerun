@@ -406,7 +406,7 @@ export async function dispatchAccountTool(actor: Actor, name: string, args: Reco
                 // something that will not run until a slot frees up. Saying so is the only way the
                 // caller can tell that apart from a working agent.
                 active: !agent.disabled_at,
-                ...(agent.disabled_at ? { inactiveReason: 'No free coworker slot on the current plan. Delete a coworker or add a coworker pack to activate it.' } : {}),
+                ...(agent.disabled_at ? { inactiveReason: 'No free coworker slot on the current plan. Start Pro for unlimited coworkers, or delete a coworker to activate it.' } : {}),
                 connectors: connectors.map(connectorView),
             }
         }

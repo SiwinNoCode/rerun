@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 import { AMOUNT_LOCALE, amountFormat, formatAmount } from '@rerun/contracts'
 import { BorderBeam } from '@rerun/ui'
@@ -9,7 +9,6 @@ import { Badge, useScrollFade, type BadgeTone } from '@rerun/ui/primitives'
 import NumberFlow from '@number-flow/react'
 import { AnimatePresence, motion } from 'motion/react'
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field } from '@/components/ui/field'
@@ -17,7 +16,7 @@ import { Icon } from '@/components/ui/icon'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { TooltipDisabledReason } from '@/components/ui/tooltip'
-import { BASE_PLAN_CREDITS, DEFAULT_PRICE_ARM, PLAN_CURRENCY, TRIAL_ACTIVE_AGENTS, TRIAL_CREDITS, TRIAL_DAYS, creditsLabel, agentStops, packsForAgents, perMonthCents, planPriceCents, yearlyDiscountPercent, type AddonQuantities, type BillingInterval, type PriceArm } from '@/ee/lib/billing/plans'
+import { BASE_PLAN_CREDITS, DEFAULT_PRICE_ARM, PLAN_CURRENCY, TRIAL_ACTIVE_AGENTS, TRIAL_CREDITS, TRIAL_DAYS, ZERO_QUANTITIES, creditsLabel, perMonthCents, planPriceCents, yearlyDiscountPercent, type BillingInterval, type PriceArm } from '@/ee/lib/billing/plans'
 import { ArrowLeft, BrainIcon, CheckIcon, CoinsIcon, CpuIcon, CreditCardIcon, Loader2Icon, Package, Repeat, TriangleAlertIcon, UserPlus, XIcon, ZapIcon, type LucideIcon } from '@/lib/icons'
 import { TESTIMONIALS } from '@rerun/cloud/testimonials'
 import { landingUrl } from '@/lib/site'
@@ -113,204 +112,12 @@ export function IntervalToggle({ value, onChange, disabled }: { value: BillingIn
     )
 }
 
-const STOPS = agentStops()
-const FIRST_STOP = STOPS[0]
-const LAST_STOP = STOPS[STOPS.length - 1]
-
-// Position on the agents track, 0 to 100. The stops are evenly spaced, so a count that is not a
-// stop (12 agents running) still lands in the right place.
-function stopPosition(agents: number): number {
-    return Math.min(100, Math.max(0, ((agents - FIRST_STOP) / (LAST_STOP - FIRST_STOP)) * 100))
-}
-
-function nearestStop(position: number): number {
-    const index = Math.round((Math.min(100, Math.max(0, position)) / 100) * (STOPS.length - 1))
-    return STOPS[index]
-}
-
-const HATCH = 'repeating-linear-gradient(-45deg, currentColor 0 2px, transparent 2px 6px)'
-
-// Pointer drag on the track snaps to the nearest stop, read against the track's own rect.
-function useTrackDrag(onChange: (agents: number) => void, disabled?: boolean) {
-    const pick = (event: ReactPointerEvent<HTMLDivElement>) => {
-        const rect = event.currentTarget.getBoundingClientRect()
-        onChange(nearestStop(((event.clientX - rect.left) / rect.width) * 100))
-    }
-    if (disabled) return {}
-    return {
-        onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
-            event.currentTarget.setPointerCapture(event.pointerId)
-            pick(event)
-        },
-        onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => {
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) pick(event)
-        },
-    }
-}
-
-// A label pinned to a point of the track stays inside it: centred on the point, except near an end
-// where it hangs inward so "0 running" does not spill out of the dialog.
-function pinAlignment(at: number) {
-    if (at < 8) return 'items-start'
-    if (at > 92) return '-translate-x-full items-end'
-    return '-translate-x-1/2 items-center'
-}
-
-function StopTicks({ value, current, onChange, disabled }: { value: number; current?: number; onChange: (value: number) => void; disabled?: boolean }) {
-    return (
-        <div className={cn('relative', current === undefined ? 'h-4' : 'h-8')}>
-            {STOPS.map((stop, index) => (
-                <button
-                    key={stop}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onChange(stop)}
-                    className={cn(
-                        'absolute -translate-x-1/2 text-xs tabular-nums transition-colors',
-                        index % 2 === 1 && 'max-sm:hidden',
-                        stop === value ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
-                    )}
-                    style={{ left: `${stopPosition(stop)}%` }}
-                >
-                    {index === STOPS.length - 1 ? `${stop}+` : stop}
-                </button>
-            ))}
-            {current !== undefined && (
-                <span className={cn('pointer-events-none absolute top-4.5 flex text-[11px] whitespace-nowrap text-muted-foreground', pinAlignment(stopPosition(current)))} style={{ left: `${stopPosition(current)}%` }}>
-                    Current plan
-                </span>
-            )}
-        </div>
-    )
-}
-
-function Thumb({ at, danger }: { at: number; danger?: boolean }) {
-    return (
-        <span
-            className={cn(
-                'pointer-events-none absolute top-1/2 h-8 w-4 -translate-x-1/2 -translate-y-1/2 rounded-md bg-white shadow-md ring-[3px] transition-[left,box-shadow] duration-200 ease-out',
-                danger ? 'ring-destructive' : 'ring-brand',
-            )}
-            style={{ left: `${at}%` }}
-        />
-    )
-}
-
-// Painted across the whole track and clipped to its range: a slanted hatch is laid out against its
-// own box, so a segment that resized would slide its stripes. Clipped, they stay put and the thumb
-// only uncovers more or fewer of them.
-function Segment({ from, to, className, style }: { from: number; to: number; className?: string; style?: CSSProperties }) {
-    if (to <= from) return null
-    return <span className={cn('absolute inset-0 transition-[clip-path] duration-200 ease-out', className)} style={{ clipPath: `inset(0 ${100 - to}% 0 ${from}%)`, ...style }} />
-}
-
-// The thumb sits beside the clipped bar, not inside it, so its ring and shadow are not cut off.
-function Track({ thumbAt, danger, children }: { thumbAt: number; danger?: boolean; children: ReactNode }) {
-    return (
-        <div className="relative h-8">
-            <span className="absolute inset-x-0 top-1/2 h-6 -translate-y-1/2 overflow-hidden rounded-md bg-muted-foreground/20">{children}</span>
-            <Thumb at={thumbAt} danger={danger} />
-        </div>
-    )
-}
-
-function AgentsHeader({ value }: { value: number }) {
-    return (
-        <div className="flex items-baseline justify-between text-sm">
-            <span className="text-muted-foreground">Coworkers</span>
-            <span>
-                <span className="font-medium tabular-nums">
-                    <CountFlow value={value} />
-                </span>{' '}
-                <span className="text-muted-foreground">coworkers</span>
-            </span>
-        </div>
-    )
-}
-
-export function AgentSlider({ value, onChange, disabled }: { value: number; onChange: (value: number) => void; disabled?: boolean }) {
-    const drag = useTrackDrag(onChange, disabled)
-    const valueAt = stopPosition(value)
-
-    return (
-        <div className="flex flex-col gap-3">
-            <AgentsHeader value={value} />
-            <div className="mx-2.5 flex flex-col gap-2">
-                <div {...drag} className={cn('relative touch-none', disabled ? 'opacity-60' : 'cursor-pointer')}>
-                    <Track thumbAt={valueAt}>
-                        <Segment from={0} to={valueAt} className="bg-brand/25 text-brand" style={{ backgroundImage: HATCH }} />
-                    </Track>
-                </div>
-                <StopTicks value={value} onChange={onChange} disabled={disabled} />
-            </div>
-        </div>
-    )
-}
-
-// One track reads the whole plan without a legend: solid grey covers the agents the workspace has,
-// flagged above the track; only the gap to the thumb is hatched, brand for the room left on the plan;
-// "Current plan" sits under the stop paid for today. Dropping the thumb into the grey turns it red: the
-// red hatch past the thumb is the agents switched off when the change lands.
-export function AgentMeter({
-    running,
-    current,
-    value,
-    pausesOn,
-    onChange,
-    disabled,
-}: {
-    running: number
-    current: number
-    value: number
-    pausesOn: string
-    onChange: (value: number) => void
-    disabled?: boolean
-}) {
-    const drag = useTrackDrag(onChange, disabled)
-    const runningAt = stopPosition(running)
-    const valueAt = stopPosition(value)
-    const currentAt = stopPosition(current)
-    const pausing = Math.max(0, running - value)
-    const short = pausing > 0
-
-    return (
-        <div className="flex flex-col gap-3">
-            <AgentsHeader value={value} />
-            <div className="mx-2.5 flex flex-col gap-2">
-                <div {...drag} className={cn('relative pt-7 touch-none', disabled ? 'opacity-60' : 'cursor-pointer')}>
-                    <span className={cn('pointer-events-none absolute top-0 flex flex-col gap-1 transition-[left] duration-200 ease-out', pinAlignment(runningAt))} style={{ left: `${runningAt}%` }}>
-                        <span className={cn('text-[11px] whitespace-nowrap tabular-nums', short ? 'text-destructive' : 'text-muted-foreground')}>
-                            <span className={cn('font-medium', !short && 'text-foreground')}>{running}</span> in your workspace
-                        </span>
-                        <span className={cn('h-3 w-px', short ? 'bg-destructive' : 'bg-brand')} />
-                    </span>
-                    <Track thumbAt={valueAt} danger={short}>
-                        <Segment from={0} to={Math.min(runningAt, valueAt)} className={short ? 'bg-destructive/25' : 'bg-muted-foreground/35'} />
-                        <Segment from={runningAt} to={valueAt} className="bg-brand/25 text-brand" style={{ backgroundImage: HATCH }} />
-                        <Segment from={valueAt} to={runningAt} className="bg-destructive/10 text-destructive/45" style={{ backgroundImage: HATCH }} />
-                        {value !== current && <span className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-foreground/70" style={{ left: `${currentAt}%` }} />}
-                    </Track>
-                </div>
-                <StopTicks value={value} current={current} onChange={onChange} disabled={disabled} />
-            </div>
-            {short && (
-                <SwitchOffAlert title={`${pausing} ${pausing === 1 ? 'coworker switches off' : 'coworkers switch off'} on ${pausesOn}`}>
-                    The most recently added go first, with their data saved.
-                </SwitchOffAlert>
-            )}
-        </div>
-    )
-}
-
-// `id` and not `strong` as the key: the agents line changes with the slider, and a remounted Icon
-// draws its beam at a new angle.
-//
 // On a free trial the lines that differ from Pro say the trial's own limits first: the card sits under
 // a subtitle quoting them, and Pro's figures alone would read as what the trial gives.
-function features(agents: number, freeTrial: boolean): { id: string; icon: LucideIcon; strong: ReactNode; rest: string; lead?: string }[] {
+function features(freeTrial: boolean): { id: string; icon: LucideIcon; strong: ReactNode; rest: string; lead?: string }[] {
     if (freeTrial) {
         return [
-            { id: 'agents', icon: CpuIcon, strong: `${TRIAL_ACTIVE_AGENTS} coworkers`, rest: ` during the trial, ${agents} on Pro` },
+            { id: 'agents', icon: CpuIcon, strong: `${TRIAL_ACTIVE_AGENTS} coworkers`, rest: ' during the trial, unlimited on Pro' },
             { id: 'teammates', icon: UserPlus, lead: 'Invite ', strong: 'your team', rest: ' once Pro starts' },
             { id: 'runs', icon: Repeat, strong: 'Unlimited runs', rest: ', 24/7' },
             { id: 'credit', icon: CoinsIcon, strong: `${creditsLabel(TRIAL_CREDITS)} of AI usage`, rest: `, then ${BASE_PLAN_CREDITS.toLocaleString('en-US')} a month` },
@@ -319,16 +126,7 @@ function features(agents: number, freeTrial: boolean): { id: string; icon: Lucid
         ]
     }
     return [
-        {
-            id: 'agents',
-            icon: CpuIcon,
-            strong: (
-                <>
-                    <CountFlow value={agents} /> coworkers
-                </>
-            ),
-            rest: ' at work',
-        },
+        { id: 'agents', icon: CpuIcon, strong: 'Unlimited coworkers', rest: ' at work' },
         { id: 'teammates', icon: UserPlus, lead: 'Invite ', strong: 'all your teammates', rest: '' },
         { id: 'runs', icon: Repeat, strong: 'Unlimited runs', rest: ', 24/7' },
         { id: 'credit', icon: CoinsIcon, strong: `${creditsLabel(BASE_PLAN_CREDITS)} of AI usage`, rest: ' a month' },
@@ -337,10 +135,10 @@ function features(agents: number, freeTrial: boolean): { id: string; icon: Lucid
     ]
 }
 
-function FeatureGrid({ agents, freeTrial = false }: { agents: number; freeTrial?: boolean }) {
+function FeatureGrid({ freeTrial = false }: { freeTrial?: boolean }) {
     return (
         <ul className="grid grid-cols-1 gap-x-6 gap-y-2.5 lg:grid-cols-2">
-            {features(agents, freeTrial).map(feature => (
+            {features(freeTrial).map(feature => (
                 <li key={feature.id} className="flex items-center gap-3 text-sm text-muted-foreground">
                     <Icon size="sm" icon={feature.icon} />
                     <span>
@@ -354,31 +152,12 @@ function FeatureGrid({ agents, freeTrial = false }: { agents: number; freeTrial?
     )
 }
 
-export function planQuantities(agents: number, creditPacks = 0, linkedinSlots = 0): AddonQuantities {
-    return { agent_pack: packsForAgents(agents), credit_pack: creditPacks, linkedin_slot: linkedinSlots, whatsapp_slot: 0 }
-}
-
-// The plan: its name and billing on the left, the price per month on the right, then whatever sets
-// the agent count (slider, meter, or nothing on the card trial). `discountCents` is what comes off
-// each invoice for a workspace grandfathered on a legacy price or holding a permanent promo.
-// `freeTrial` prices the card at what the trial costs, the plan's price struck beside it.
+// The plan: its name and billing on the left, the price per month on the right. `discountCents` is
+// what comes off each invoice for a workspace grandfathered on a legacy price or holding a permanent
+// promo. `freeTrial` prices the card at what the trial costs, the plan's price struck beside it.
 // `priceArm` is the price this workspace is sold the base plan at.
-export function PlanCard({
-    agents,
-    interval,
-    priceArm = DEFAULT_PRICE_ARM,
-    discountCents = 0,
-    freeTrial = false,
-    children,
-}: {
-    agents: number
-    interval: BillingInterval
-    priceArm?: PriceArm
-    discountCents?: number
-    freeTrial?: boolean
-    children?: ReactNode
-}) {
-    const quantities = planQuantities(agents)
+export function PlanCard({ interval, priceArm = DEFAULT_PRICE_ARM, discountCents = 0, freeTrial = false }: { interval: BillingInterval; priceArm?: PriceArm; discountCents?: number; freeTrial?: boolean }) {
+    const quantities = ZERO_QUANTITIES
     const periodCents = Math.max(0, planPriceCents(quantities, interval, priceArm) - discountCents)
     const monthCents = interval === 'yearly' ? Math.round(periodCents / 12) : periodCents
     const struckListPrice = freeTrial || interval === 'yearly' || discountCents > 0
@@ -399,8 +178,7 @@ export function PlanCard({
                     <div className="min-w-0">
                         <p className="text-lg font-medium">Pro plan</p>
                         <p className="text-sm text-muted-foreground">
-                            {freeTrial && 'Free trial, then '}
-                            <CountFlow value={agents} /> coworkers · {billing}
+                            {freeTrial ? 'Free trial, then unlimited coworkers' : 'Unlimited coworkers'} · {billing}
                         </p>
                     </div>
                 </div>
@@ -419,8 +197,7 @@ export function PlanCard({
                     <p className="text-sm text-muted-foreground">{freeTrial ? `for ${TRIAL_DAYS} days` : 'per month'}</p>
                 </div>
             </div>
-            {children}
-            <FeatureGrid agents={agents} freeTrial={freeTrial} />
+            <FeatureGrid freeTrial={freeTrial} />
         </div>
     )
 }
@@ -681,16 +458,6 @@ export function SuccessPanel({ title, body, rows, cta, onDone, loading }: { titl
             </div>
             <PayFooter cta={cta} onClick={onDone} loading={loading} />
         </div>
-    )
-}
-
-export function SwitchOffAlert({ title, children }: { title: string; children: ReactNode }) {
-    return (
-        <Alert variant="danger" stripes className="grid-cols-[auto_1fr] gap-x-3 gap-y-0">
-            <Icon icon={TriangleAlertIcon} size="sm" className="row-span-2 self-center" />
-            <AlertTitle className="col-start-2 leading-tight">{title}</AlertTitle>
-            <AlertDescription className="col-start-2 leading-snug">{children}</AlertDescription>
-        </Alert>
     )
 }
 

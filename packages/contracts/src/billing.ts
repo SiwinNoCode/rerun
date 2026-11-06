@@ -15,9 +15,9 @@ export const PLAN_CURRENCY = 'usd'
 // lifecycle emails and every line of copy that states it, so the number is written once.
 export const TRIAL_DAYS = 5
 
-// Three agents is what it takes to see a workspace work rather than a single agent in isolation, and
-// it is fewer than the base plan holds: a trial builds every agent it plans, the ones past the third
-// wait switched off for the first charge.
+// Three agents is what it takes to see a workspace work rather than a single agent in isolation. The
+// paid plan has no cap: a trial builds every agent it plans, the ones past the third wait switched
+// off until the trial converts.
 export const TRIAL_ACTIVE_AGENTS = 3
 
 // The one credit a new account gets, from signup through the end of its trial. The trial adds no
@@ -53,16 +53,16 @@ export const BILLING_INTERVALS = ['monthly', 'yearly'] as const
 
 export type BillingInterval = (typeof BILLING_INTERVALS)[number]
 
-export const ADDON_KEYS = ['agent_pack', 'credit_pack', 'linkedin_slot', 'whatsapp_slot'] as const
+export const ADDON_KEYS = ['credit_pack', 'linkedin_slot', 'whatsapp_slot'] as const
 
 export type AddonKey = (typeof ADDON_KEYS)[number]
 
-// Every price, per billing interval. The yearly agent pack carries the same discount as the base
-// plan; the credit pack does not, because model credit is resold at cost and a discount on it is a
-// loss on every pack. Nor does an app slot: each one is an account Rerun pays for by the month.
+// Every price, per billing interval. The credit pack carries no yearly discount, because model credit
+// is resold at cost and a discount on it is a loss on every pack. Nor does an app slot: each one is
+// an account Rerun pays for by the month.
 export const PLAN_PRICES_CENTS: Record<BillingInterval, Record<'base' | AddonKey, number>> = {
-    monthly: { base: 4900, agent_pack: 1000, credit_pack: 1000, linkedin_slot: 900, whatsapp_slot: 900 },
-    yearly: { base: 46800, agent_pack: 9600, credit_pack: 12000, linkedin_slot: 10800, whatsapp_slot: 10800 },
+    monthly: { base: 4900, credit_pack: 1000, linkedin_slot: 900, whatsapp_slot: 900 },
+    yearly: { base: 46800, credit_pack: 12000, linkedin_slot: 10800, whatsapp_slot: 10800 },
 }
 
 // The base plan is sold at two prices while the price test runs: a workspace is drawn into an arm
@@ -93,19 +93,13 @@ export function basePriceCents(arm: PriceArm = LIST_PRICE_ARM, interval: Billing
     return BASE_PRICE_CENTS[arm][interval]
 }
 
+// The plan runs as many coworkers as the workspace builds: there is no agent count to sell.
 export const BASE_PLAN = {
     priceCents: PLAN_PRICES_CENTS.monthly.base,
-    agents: 5,
     creditUsd: 5,
 } as const
 
 export const BASE_PLAN_CREDITS = creditsFromUsd(BASE_PLAN.creditUsd)
-
-export const AGENTS_PER_PACK = 5
-
-// Where the agents slider stops. More is still sold, as packs on the subscription; the slider only
-// caps what one gesture can pick.
-export const MAX_SLIDER_AGENTS = 50
 
 // A quantity of model spend rather than a discount, hence a whole-dollar figure and not cents:
 // the models are billed to Rerun in dollars and the credit is granted in the same unit.
@@ -115,7 +109,6 @@ export const CREDITS_PER_PACK = creditsFromUsd(CREDIT_USD_PER_PACK)
 
 // Monthly prices only, for the surfaces that quote a plain "per month" figure.
 export const ADDONS: Record<AddonKey, { priceCents: number }> = {
-    agent_pack: { priceCents: PLAN_PRICES_CENTS.monthly.agent_pack },
     credit_pack: { priceCents: PLAN_PRICES_CENTS.monthly.credit_pack },
     linkedin_slot: { priceCents: PLAN_PRICES_CENTS.monthly.linkedin_slot },
     whatsapp_slot: { priceCents: PLAN_PRICES_CENTS.monthly.whatsapp_slot },
@@ -123,7 +116,7 @@ export const ADDONS: Record<AddonKey, { priceCents: number }> = {
 
 export type AddonQuantities = Record<AddonKey, number>
 
-export const ZERO_QUANTITIES: AddonQuantities = { agent_pack: 0, credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 }
+export const ZERO_QUANTITIES: AddonQuantities = { credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 }
 
 // What one invoice of the interval bills, before tax and discounts.
 export function planPriceCents(quantities: AddonQuantities, interval: BillingInterval, arm: PriceArm = LIST_PRICE_ARM): number {
@@ -146,16 +139,4 @@ export function perMonthCents(quantities: AddonQuantities, interval: BillingInte
 // $276 a year on $29 a month is a shade over it.
 export function yearlyDiscountPercent(): number {
     return Math.round((1 - PLAN_PRICES_CENTS.yearly.base / (12 * PLAN_PRICES_CENTS.monthly.base)) * 100)
-}
-
-export function agentsForPacks(packs: number): number {
-    return BASE_PLAN.agents + packs * AGENTS_PER_PACK
-}
-
-export function packsForAgents(agents: number): number {
-    return Math.max(0, Math.ceil((agents - BASE_PLAN.agents) / AGENTS_PER_PACK))
-}
-
-export function agentStops(): number[] {
-    return Array.from({ length: packsForAgents(MAX_SLIDER_AGENTS) + 1 }, (_, packs) => agentsForPacks(packs))
 }

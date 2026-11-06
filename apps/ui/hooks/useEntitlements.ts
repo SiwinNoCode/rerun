@@ -1,8 +1,8 @@
 'use client'
 
 // Hook client qui lie la limite snapshotée du workspace (max_agents) aux compteurs du board,
-// et expose un point d'entrée unique `gate()` pour ouvrir le BillingDialog avec le bon add-on
-// mis en avant. Les Box ne sont pas comptées : elles rangent les agents et ne coûtent rien.
+// et expose un point d'entrée unique `gate()` pour ouvrir le BillingDialog sur ce qui lève la
+// limite. Les Box ne sont pas comptées : elles rangent les agents et ne coûtent rien.
 //
 // Côté agents la limite porte sur les agents ACTIFS : un workspace peut en stocker autant qu'il
 // veut, ceux qui dépassent restent éteints. « Plus de slot » n'empêche donc pas de créer, ça
@@ -12,8 +12,7 @@
 // ramène à zéro. `activeAgentLimitFor` est la même fonction que celle du gate serveur.
 
 import { activeAgentLimitFor } from '@rerun/cloud/billing'
-import type { AddonKey } from '@rerun/cloud/billing'
-import { useBillingStore } from '@/stores/billing.store'
+import { AGENT_LIMIT_TRIGGER, useBillingStore } from '@/stores/billing.store'
 import { useBoardStore } from '@/stores/board.store'
 import { useSession } from '@/supabase/session/SessionProvider'
 import { useMemo } from 'react'
@@ -41,8 +40,8 @@ export function useEntitlements() {
                 const total = useBoardStore.getState().agents.filter(a => !a.disabledAt).length + count
                 return { ok: maxAgents === null || total <= maxAgents }
             },
-            // Ouvre le billing en surlignant l'add-on qui débloque la limite atteinte.
-            gate: (addon: AddonKey | null) => openBilling(addon ?? undefined, 'entitlement_gate'),
+            // Seul un trial a encore une limite : le billing s'ouvre sur le paiement immédiat, qui la lève.
+            gate: () => openBilling(undefined, AGENT_LIMIT_TRIGGER),
         }
     }, [maxAgents, activeAgentsCount, openBilling])
 }

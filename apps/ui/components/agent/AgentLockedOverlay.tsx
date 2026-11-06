@@ -13,6 +13,7 @@ import { LoaderIcon, LockIcon } from '@/lib/icons'
 import { isPlanLimited, type IsoAgent } from '@/lib/board/types'
 import { useBillingStore } from '@/stores/billing.store'
 import { useBoardStore } from '@/stores/board.store'
+import { useSession } from '@/supabase/session/SessionProvider'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -72,13 +73,19 @@ export function WorkspaceRestoringOverlay({ name }: { name: string }) {
     )
 }
 
+// Only a trial's cap is lifted by paying: a paid plan runs unlimited coworkers, so a number left on
+// a subscribed workspace was set by hand from the admin and no checkout raises it.
+const FIXED_LIMIT_REASON = 'This workspace has a fixed coworker limit. Contact support to raise it.'
+
 function AgentSlotOverlay({ agent }: { agent: IsoAgent }) {
     const { noFreeAgentSlot, activeAgentsCount, maxAgents, gate } = useEntitlements()
+    const { workspace } = useSession()
     const localActivateAgent = useBoardStore(s => s._localActivateAgent)
     const canManage = useCanManageAgent(agent.id)
     const [activating, setActivating] = useState(false)
 
     const fromTemplate = !isPlanLimited(agent)
+    const capFixedByHand = noFreeAgentSlot && workspace?.subscription_status !== 'trialing'
 
     const handleActivate = async () => {
         setActivating(true)
@@ -107,9 +114,11 @@ function AgentSlotOverlay({ agent }: { agent: IsoAgent }) {
             {!fromTemplate &&
                 (noFreeAgentSlot ? (
                     <div className="space-y-2">
-                        <Button variant="outline" highlight onClick={() => gate('agent_pack')}>
-                            Upgrade to activate
-                        </Button>
+                        <TooltipDisabledReason reason={capFixedByHand ? FIXED_LIMIT_REASON : undefined}>
+                            <Button variant="outline" highlight disabled={capFixedByHand} onClick={gate}>
+                                Upgrade to activate
+                            </Button>
+                        </TooltipDisabledReason>
                         {maxAgents !== null && (
                             <p className="text-xs text-muted-foreground">
                                 {activeAgentsCount} of {maxAgents} coworkers active

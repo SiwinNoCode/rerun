@@ -19,14 +19,14 @@ import {
 import type { PlanSelection, SubscriptionState } from '@/ee/services/billing.service'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useEntitlements } from '@/hooks/useEntitlements'
 import { useWorkspaceAccess } from '@/hooks/useWorkspaceAccess'
 import type { CheckoutRoute } from '@/ee/lib/billing/checkout-variant'
 import { isSubscriptionEntitled } from '@/ee/lib/billing/entitlement'
-import { BASE_PLAN, PLAN_PRICES_CENTS, TRIAL_DAYS, agentStops, agentsForPacks, planPriceCents, trialEndDate, trialLimitsLabel, type AddonQuantities, type BillingInterval, type PriceArm } from '@/ee/lib/billing/plans'
+import { PLAN_PRICES_CENTS, TRIAL_DAYS, ZERO_QUANTITIES, planPriceCents, trialEndDate, trialLimitsLabel, type AddonQuantities, type BillingInterval, type PriceArm } from '@/ee/lib/billing/plans'
 import { usePriceArm } from '@/ee/lib/billing/usePriceArm'
 import { TRIAL_ENDING_LEAD_MS } from '@/ee/lib/lifecycle/sequences'
 import { useStartPending } from '@/lib/onboarding/useStartPending'
+import { AGENT_LIMIT_TRIGGER, useBillingStore } from '@/stores/billing.store'
 import { useForemanStore } from '@/stores/foreman.store'
 import { hasPendingStart, useOnboardingStore } from '@/stores/onboarding.store'
 import { useSession } from '@/supabase/session/SessionProvider'
@@ -36,7 +36,7 @@ import { CreditCard } from './credit-usage/CreditCard'
 import { UsagePane } from './credit-usage/UsagePane'
 import { useCreditUsage } from './credit-usage/useCreditUsage'
 import { checkoutCopy, longDate, nextInvoiceDate, shortDate, type CheckoutContext } from './checkout-copy'
-import { AgentSlider, BilledFlow, CardOnFile, Headline, IntervalToggle, PayFooter, PayHeader, PlanCard, RightTitle, SuccessPanel, SummaryRows, TermsConsent, TestimonialStrip, Timeline, UsdFlow, planQuantities, usd } from './parts'
+import { BilledFlow, CardOnFile, Headline, IntervalToggle, PayFooter, PayHeader, PlanCard, RightTitle, SuccessPanel, SummaryRows, TermsConsent, TestimonialStrip, Timeline, UsdFlow, usd } from './parts'
 import { StripeCheckoutProvider, StripePaymentFields, StripePaymentFieldsSkeleton, StripePromoCode } from './StripeCheckout'
 import { usePlanQuote } from './usePlanQuote'
 
@@ -51,21 +51,14 @@ type Done = 'paid' | 'card_saved' | 'trial_started' | 'restoring'
 
 const DAY_MS = 86_400_000
 
-// A plan already running keeps its other add-ons: an app slot put on during the trial would
-// otherwise be dropped by the change that ends it.
-function selectionOf(agents: number, interval: BillingInterval, current?: AddonQuantities): PlanSelection {
-    return { quantities: current ? { ...current, agent_pack: planQuantities(agents).agent_pack } : planQuantities(agents), interval }
+// A plan already running keeps its add-ons: an app slot put on during the trial would otherwise be
+// dropped by the change that ends it.
+function selectionOf(interval: BillingInterval, current?: AddonQuantities): PlanSelection {
+    return { quantities: current ?? ZERO_QUANTITIES, interval }
 }
 
-
-function billedLabel(agents: number, interval: BillingInterval, priceArm: PriceArm): string {
-    return `${usd(planPriceCents(planQuantities(agents), interval, priceArm))}${interval === 'yearly' ? '/yr' : '/mo'}`
-}
-
-// The smallest stop that holds every agent switched on, so the plan offered never switches one off.
-function defaultAgents(activeAgents: number, maxAgents: number | null | undefined): number {
-    const wanted = Math.max(BASE_PLAN.agents, activeAgents, maxAgents ?? 0)
-    return agentStops().find(stop => stop >= wanted) ?? agentStops().at(-1)!
+function billedLabel(interval: BillingInterval, priceArm: PriceArm): string {
+    return `${usd(planPriceCents(ZERO_QUANTITIES, interval, priceArm))}${interval === 'yearly' ? '/yr' : '/mo'}`
 }
 
 // A year from now reads with its year: "Oct 2" alone would read as today.
@@ -94,7 +87,6 @@ export function CheckoutDialog({
     onTrialRefused: () => void
 }) {
     const { workspace, refreshWorkspace } = useSession()
-    const { activeAgentsCount } = useEntitlements()
     const { keptUntil } = useWorkspaceAccess()
     const parkedTemplate = useOnboardingStore(s => s.pendingTemplate)
     const parked = useOnboardingStore(s => hasPendingStart(s))
@@ -104,11 +96,11 @@ export function CheckoutDialog({
     const priceArm = state?.priceArm ?? workspacePriceArm
 
     const fixedPlan = route.variant === 'start_trial'
-    const [agents, setAgents] = useState(() => (fixedPlan ? BASE_PLAN.agents : defaultAgents(activeAgentsCount, route.variant === 'paused' ? workspace?.max_agents : null)))
     const [interval, setBillingInterval] = useState<BillingInterval>(fixedPlan || workspace?.subscription_status === 'trialing' ? 'monthly' : DEFAULT_INTERVAL)
     const [done, setDone] = useState<Done | null>(null)
     const [placing, setPlacing] = useState(false)
-    const [payNow, setPayNow] = useState(false)
+    // Sent here by the trial's coworker cap: what lifts it is paying now, so the dialog opens on that.
+    const [payNow, setPayNow] = useState(() => route.variant === 'trial_card' && useBillingStore.getState().trigger === AGENT_LIMIT_TRIGGER)
     const [usageOpen, setUsageOpen] = useState(false)
     const credit = useCreditUsage({ enabled: workspace?.subscription_status === 'trialing' })
     const [openedAt] = useState(() => Date.now())
@@ -118,11 +110,10 @@ export function CheckoutDialog({
     const planFixed = fixedPlan || trialView
     const trialEndsAt = workspace?.trial_ends_at ? new Date(workspace.trial_ends_at) : null
     const reminderAt = trialEndsAt ? new Date(trialEndsAt.getTime() - TRIAL_ENDING_LEAD_MS) : null
-    const firstChargeCents = state?.nextInvoice?.amountCents ?? planPriceCents(state?.quantities ?? planQuantities(BASE_PLAN.agents), state?.interval ?? 'monthly', priceArm)
+    const firstChargeCents = state?.nextInvoice?.amountCents ?? planPriceCents(state?.quantities ?? ZERO_QUANTITIES, state?.interval ?? 'monthly', priceArm)
     const startTrialEnds = trialEndDate(new Date(openedAt))
     const context: CheckoutContext = {
-        agents,
-        billed: <BilledFlow cents={planPriceCents(planQuantities(agents), interval, priceArm)} interval={interval} />,
+        billed: <BilledFlow cents={planPriceCents(ZERO_QUANTITIES, interval, priceArm)} interval={interval} />,
         nextInvoice: invoiceDateLabel(interval),
         trialEnds: route.variant === 'start_trial' ? shortDate(startTrialEnds) : trialEndsAt ? shortDate(trialEndsAt) : null,
         trialDaysLeft: trialEndsAt ? Math.ceil((trialEndsAt.getTime() - openedAt) / DAY_MS) : null,
@@ -133,7 +124,7 @@ export function CheckoutDialog({
         parked: parkedTemplate ? { title: parkedTemplate.title, agentCount: parkedTemplate.agentCount } : null,
     }
     const copy = checkoutCopy(route.variant === 'trial_card' && payNow ? 'trial_card_pay_now' : route.variant, context)
-    const selection = selectionOf(agents, interval, state?.quantities)
+    const selection = selectionOf(interval, state?.quantities)
 
     // On a trial, more credit comes with Pro: the card's button leads to paying now, or back to the
     // pane that already sells it.
@@ -157,9 +148,7 @@ export function CheckoutDialog({
             <Timeline steps={copy.timeline} />
             <div className="mt-6 mb-4 flex flex-col gap-3">
                 {!planFixed && <IntervalToggle value={interval} onChange={setBillingInterval} disabled={!!done} />}
-                <PlanCard agents={planFixed ? BASE_PLAN.agents : agents} interval={planFixed ? 'monthly' : interval} priceArm={priceArm} freeTrial={planFixed}>
-                    {!planFixed && <AgentSlider value={agents} onChange={setAgents} disabled={!!done} />}
-                </PlanCard>
+                <PlanCard interval={planFixed ? 'monthly' : interval} priceArm={priceArm} freeTrial={planFixed} />
                 {credit.trial && <CreditCard credit={credit} onAdd={startProNow} onOpenUsage={done ? undefined : () => setUsageOpen(true)} />}
             </div>
             <TestimonialStrip />
@@ -179,7 +168,7 @@ export function CheckoutDialog({
                 setPlacing(false)
             }
         }
-        const success = successCopy(done, { agents, interval, priceArm, trialEnds: context.trialEnds, firstCharge: context.firstCharge })
+        const success = successCopy(done, { interval, priceArm, trialEnds: context.trialEnds, firstCharge: context.firstCharge })
         return (
             <BillingDialogShell
                 title={success.title}
@@ -219,10 +208,10 @@ export function CheckoutDialog({
     return <BillingDialogShell title={copy.title} mobileOrder={planFixed ? 'payment-first' : 'plan-first'} intro={intro} left={left} right={right} />
 }
 
-function successCopy(done: Done, { agents, interval, priceArm, trialEnds, firstCharge }: { agents: number; interval: BillingInterval; priceArm: PriceArm; trialEnds: string | null; firstCharge: string }) {
-    const next = `${invoiceDateLabel(interval)} · ${billedLabel(agents, interval, priceArm)}`
+function successCopy(done: Done, { interval, priceArm, trialEnds, firstCharge }: { interval: BillingInterval; priceArm: PriceArm; trialEnds: string | null; firstCharge: string }) {
+    const next = `${invoiceDateLabel(interval)} · ${billedLabel(interval, priceArm)}`
     const planRows = [
-        { label: 'Plan', value: `Pro · ${agents} coworkers` },
+        { label: 'Plan', value: 'Pro · Unlimited coworkers' },
         { label: 'Next invoice', value: next },
     ]
     switch (done) {
@@ -232,7 +221,7 @@ function successCopy(done: Done, { agents, interval, priceArm, trialEnds, firstC
             return {
                 title: 'Card saved',
                 body: `Your trial keeps running. Pro starts on ${trialEnds ?? 'the last day of your trial'}, ${firstCharge} charged to this card.`,
-                rows: [{ label: 'Plan', value: `Pro · ${BASE_PLAN.agents} coworkers` }],
+                rows: [{ label: 'Plan', value: 'Pro · Unlimited coworkers' }],
                 cta: 'Back to my board',
             }
         case 'trial_started':
@@ -309,7 +298,7 @@ function SubscribeForm({
     const key = JSON.stringify(selection)
     const stale = syncedKey !== key
 
-    // The slider and the toggle move the session's line items; Stripe recomputes the totals and
+    // The interval toggle moves the session's line items; Stripe recomputes the totals and
     // `runServerUpdate` reloads them. A selection counts as synced only once Stripe has it: until then
     // the pay button stays off, so what is confirmed is always what is shown. `runServerUpdate`
     // hands back a new `checkout` mid-flight, which re-runs this effect: the in-flight guard keeps it
@@ -552,7 +541,6 @@ function CardOnFilePane({
     }
 
     const listCents = planPriceCents(selection.quantities, interval, priceArm)
-    const agents = agentsForPacks(selection.quantities.agent_pack)
     const amount = quote === 'loading' ? <Skeleton className="inline-block h-7 w-24 align-middle" /> : usd(quote?.dueTodayCents ?? listCents)
 
     if (state?.cancelAtPeriodEnd) return <TrialCancelledPane trialEnds={trialEnds} onResumed={onResumed} />
@@ -570,7 +558,7 @@ function CardOnFilePane({
             <div className="mt-6 flex flex-col gap-3">
                 <SummaryRows
                     rows={[
-                        { label: `Pro · ${agents} coworkers`, value: <BilledFlow cents={listCents} interval={interval} /> },
+                        { label: 'Pro · Unlimited coworkers', value: <BilledFlow cents={listCents} interval={interval} /> },
                         {
                             label: quote && quote !== 'loading' && quote.taxIncluded ? 'Tax' : 'Tax, from your address',
                             value: quote === 'loading' ? <Skeleton className="inline-block h-4 w-12" /> : quote ? usd(quote.taxCents) : '-',

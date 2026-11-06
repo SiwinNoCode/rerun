@@ -14,7 +14,7 @@ import { invalidateAgentContext } from '@/hooks/useAgentContext'
 import { BASE_PLAN_SLUG } from '@rerun/cloud/billing'
 import { CircleCheckIcon } from '@/lib/icons'
 import type { ForemanNextStep } from '@/lib/foreman/next-steps'
-import { useBillingStore } from '@/stores/billing.store'
+import { AGENT_LIMIT_TRIGGER, useBillingStore } from '@/stores/billing.store'
 import { useBoardStore } from '@/stores/board.store'
 import { useForemanStore } from '@/stores/foreman.store'
 import { useSubscriptionOfferStore } from '@/stores/subscription-offer.store'
@@ -39,7 +39,7 @@ export async function startLeadInstall(agentId: string): Promise<boolean> {
     if (!hasOwnConnection) await useSubscriptionOfferStore.getState().offer(agentId)
     const result = await startLeadSetupAction(agentId)
     if (!result.ok) {
-        if (result.inactive) useBillingStore.getState().openBilling('agent_pack', 'foreman')
+        if (result.inactive) useBillingStore.getState().openBilling(undefined, AGENT_LIMIT_TRIGGER)
         else toast.error('Could not start the installation', { description: result.error })
         return false
     }
@@ -106,7 +106,7 @@ function StartLeadButton({ step }: { step: StartLeadStep }) {
 
 function openBilling() {
     track('onboarding_next_step_clicked', { step: 'billing' })
-    useBillingStore.getState().openBilling('agent_pack', 'foreman')
+    useBillingStore.getState().openBilling(undefined, 'foreman')
 }
 
 // The same card form the folded trial row reopens. The build follows on its own once the workspace

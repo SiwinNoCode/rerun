@@ -10,12 +10,11 @@
 // applySubscriptionToWorkspace); after that snapshot the columns are freely editable per workspace,
 // independent of the subscription.
 
-import { BASE_PLAN, CREDIT_USD_PER_PACK, PLAN_PRICES_CENTS, TRIAL_CREDIT_USD, ZERO_QUANTITIES, agentsForPacks, type AddonQuantities, type BillingInterval } from '@rerun/contracts'
+import { BASE_PLAN, CREDIT_USD_PER_PACK, TRIAL_CREDIT_USD, ZERO_QUANTITIES, type AddonQuantities, type BillingInterval } from '@rerun/contracts'
 
 export {
     ADDONS,
     ADDON_KEYS,
-    AGENTS_PER_PACK,
     BASE_PLAN,
     BASE_PLAN_CREDITS,
     BASE_PRICE_CENTS,
@@ -24,7 +23,6 @@ export {
     CREDIT_USD_PER_PACK,
     DEFAULT_PRICE_ARM,
     LIST_PRICE_ARM,
-    MAX_SLIDER_AGENTS,
     PLAN_CURRENCY,
     PLAN_PRICES_CENTS,
     PRICE_ARMS,
@@ -33,8 +31,6 @@ export {
     TRIAL_CREDIT_USD,
     TRIAL_DAYS,
     ZERO_QUANTITIES,
-    agentStops,
-    agentsForPacks,
     creditsFromMicros,
     creditsFromUsd,
     creditsLabel,
@@ -42,7 +38,6 @@ export {
     basePriceCents,
     cardlessTrialLine,
     monthlyTotalCents,
-    packsForAgents,
     parsePriceArm,
     perMonthCents,
     planPriceCents,
@@ -90,6 +85,7 @@ export function rerunCreditTotalMicros(workspace: RerunCreditColumns | null | un
 
 // Shape of the workspace columns that hold the derived subscription limits.
 export type WorkspaceLimitColumns = {
+    // null = unlimited, what every paid plan gets. A number is the trial's cap, or one set by hand.
     max_agents: number | null
     // null = unlimited, what every plan and trial gets. A number is a cap set by hand from the admin.
     max_seats: number | null
@@ -98,12 +94,12 @@ export type WorkspaceLimitColumns = {
     rerun_budget_micros: number
 }
 
-// Derive the workspace limit columns from add-on quantities. Model access, custom integrations and
-// seats are no longer differentiators: every subscribed workspace gets everything, trial included,
-// so the team can be invited from day one.
+// Derive the workspace limit columns from add-on quantities. Coworkers, model access, custom
+// integrations and seats are no longer differentiators: every subscribed workspace gets everything,
+// so the team can be invited from day one. A trial is capped to TRIAL_ACTIVE_AGENTS by the webhook.
 export function quantitiesToColumns(q: AddonQuantities): WorkspaceLimitColumns {
     return {
-        max_agents: agentsForPacks(q.agent_pack),
+        max_agents: null,
         max_seats: null,
         model_access: 'best',
         custom_integrations: true,
@@ -129,14 +125,12 @@ export function isModelAccess(value?: string | null): value is ModelAccess {
     return !!value && (MODEL_ACCESS_VALUES as readonly string[]).includes(value)
 }
 
-export type PlanDiscounts = { interval: BillingInterval; monthlyDiscountCents: number; agentPackDiscountCents: number }
+export type PlanDiscounts = { interval: BillingInterval; monthlyDiscountCents: number }
 
-// What still comes off each invoice once the plan is at `quantities`, billed `interval`. A change of
-// agents keeps the legacy base price and the subscription's promo: only the pack item moves. A change
-// of interval moves the base item onto the price of its arm, so nothing is promised past it. A promo
-// on the pack item takes off at most what the packs bill, and nothing once they are gone.
-export function planDiscountCents(discounts: PlanDiscounts, quantities: AddonQuantities, interval: BillingInterval): number {
+// What still comes off each invoice once the plan is billed `interval`. A change of add-ons keeps
+// the legacy base price and the subscription's promo. A change of interval moves the base item onto
+// the price of its arm, so nothing is promised past it.
+export function planDiscountCents(discounts: PlanDiscounts, interval: BillingInterval): number {
     if (interval !== discounts.interval) return 0
-    const packsCents = quantities.agent_pack * PLAN_PRICES_CENTS[interval].agent_pack
-    return discounts.monthlyDiscountCents + Math.min(discounts.agentPackDiscountCents, packsCents)
+    return discounts.monthlyDiscountCents
 }

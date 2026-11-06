@@ -4,9 +4,9 @@ import type { BadgeTone } from '@rerun/ui/primitives'
 
 import type { CheckoutVariant } from '@/ee/lib/billing/checkout-variant'
 import { longDate, shortDate } from '@/ee/lib/billing/dates'
-import { BASE_PLAN, BASE_PLAN_CREDITS, TRIAL_ACTIVE_AGENTS, TRIAL_CREDITS, TRIAL_DAYS, creditsLabel, trialChargeLine, type BillingInterval } from '@/ee/lib/billing/plans'
+import { BASE_PLAN_CREDITS, TRIAL_ACTIVE_AGENTS, TRIAL_CREDITS, TRIAL_DAYS, creditsLabel, trialChargeLine, type BillingInterval } from '@/ee/lib/billing/plans'
 
-import { CountFlow, type TimelineStep } from './parts'
+import type { TimelineStep } from './parts'
 
 export { longDate, shortDate }
 
@@ -18,8 +18,7 @@ export function nextInvoiceDate(interval: BillingInterval, from = new Date()): D
 }
 
 export type CheckoutContext = {
-    agents: number
-    // The price of one invoice with its period, "$49/mo" or "$468/yr", animated as the slider moves.
+    // The price of one invoice with its period, "$29/mo" or "$276/yr", animated as the toggle moves.
     billed: ReactNode
     nextInvoice: string
     trialEnds: string | null
@@ -50,14 +49,14 @@ function trialBadge(context: CheckoutContext): CheckoutCopy['badge'] {
 }
 
 function upgradeTimeline(context: CheckoutContext): TimelineStep[] {
-    return [{ when: 'Today', title: 'Pro starts', detail: <><CountFlow value={context.agents} /> coworkers unlocked</> }, { when: context.nextInvoice, title: 'Next invoice', detail: <>{context.billed}, excl. VAT</> }, CANCEL_STEP]
+    return [{ when: 'Today', title: 'Pro starts', detail: 'Unlimited coworkers' }, { when: context.nextInvoice, title: 'Next invoice', detail: <>{context.billed}, excl. VAT</> }, CANCEL_STEP]
 }
 
 // Subscribing during a trial ends it on the spot and bills the whole plan today: said on the first
 // step, never left for the invoice to reveal.
 function endTrialTimeline(context: CheckoutContext): TimelineStep[] {
     return [
-        { when: 'Today', title: 'Trial ends, Pro starts', detail: <>{context.billed} charged today, <CountFlow value={context.agents} /> coworkers</> },
+        { when: 'Today', title: 'Trial ends, Pro starts', detail: <>{context.billed} charged today, unlimited coworkers</> },
         { when: context.nextInvoice, title: 'Next invoice', detail: <>{context.billed}, excl. VAT</> },
         CANCEL_STEP,
     ]
@@ -94,7 +93,7 @@ export function checkoutCopy(variant: CheckoutCopyKey, context: CheckoutContext)
                 subtitle: trialChargeLine(context.firstCharge, trialEnds),
                 timeline: [
                     { when: 'Today', title: 'Trial starts', detail: `$0 today, ${TRIAL_ACTIVE_AGENTS} coworkers and ${creditsLabel(TRIAL_CREDITS)} of AI usage` },
-                    { when: trialEnds, title: 'Pro starts', detail: `${context.firstCharge} charged, ${BASE_PLAN.agents} coworkers and ${creditsLabel(BASE_PLAN_CREDITS)} a month` },
+                    { when: trialEnds, title: 'Pro starts', detail: `${context.firstCharge} charged, unlimited coworkers and ${creditsLabel(BASE_PLAN_CREDITS)} a month` },
                     { when: 'Anytime', title: 'Cancel in a click', detail: 'Reminder the day before' },
                 ],
                 cta: 'Start free trial',
@@ -122,7 +121,7 @@ export function checkoutCopy(variant: CheckoutCopyKey, context: CheckoutContext)
             return {
                 badge: trialBadge(context),
                 title: 'Upgrade to Pro',
-                subtitle: `Your card is on file. Start now, or let the trial roll into Pro on ${trialEnds}.`,
+                subtitle: `The trial runs ${TRIAL_ACTIVE_AGENTS} coworkers. Start Pro now for unlimited coworkers, or let the trial roll into Pro on ${trialEnds}.`,
                 timeline: endTrialTimeline(context),
                 cta: 'End trial & start Pro now',
                 footnote: endTrialFootnote(trialEnds),
@@ -139,7 +138,7 @@ export function checkoutCopy(variant: CheckoutCopyKey, context: CheckoutContext)
         case 'no_plan':
             return {
                 title: 'Subscribe to Pro',
-                subtitle: 'Pick how many coworkers you need. You can change it anytime, prorated.',
+                subtitle: 'Unlimited coworkers, one price. Cancel anytime.',
                 timeline: upgradeTimeline(context),
                 cta: 'Subscribe',
             }
@@ -147,7 +146,7 @@ export function checkoutCopy(variant: CheckoutCopyKey, context: CheckoutContext)
             return {
                 badge: { label: 'Complimentary access', tone: 'brand' },
                 title: 'Subscribe to Pro',
-                subtitle: 'Your workspace has complimentary access. Subscribe to pick your coworkers and add credits on top of it.',
+                subtitle: 'Your workspace has complimentary access. Subscribe to add credits on top of it.',
                 timeline: upgradeTimeline(context),
                 cta: 'Subscribe',
             }

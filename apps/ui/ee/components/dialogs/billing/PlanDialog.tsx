@@ -17,9 +17,8 @@ import type { InvoiceSummary, PlanSelection, SubscriptionState } from '@/ee/serv
 import { Button } from '@/components/ui/button'
 import { PanelSteps } from '@/components/ui/panel-steps'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useEntitlements } from '@/hooks/useEntitlements'
 import { useWorkspaceAccess } from '@/hooks/useWorkspaceAccess'
-import { BASE_PLAN_CREDITS, CREDITS_PER_PACK, PLAN_PRICES_CENTS, agentsForPacks, creditsLabel, formatCredits, packsForAgents, planDiscountCents, planPriceCents, type AddonKey, type AddonQuantities, type BillingInterval } from '@/ee/lib/billing/plans'
+import { BASE_PLAN_CREDITS, CREDITS_PER_PACK, PLAN_PRICES_CENTS, creditsLabel, formatCredits, planDiscountCents, planPriceCents, type AddonKey, type AddonQuantities, type BillingInterval } from '@/ee/lib/billing/plans'
 import { ChevronRightIcon, CoinsIcon, ExternalLinkIcon, MinusIcon, PlusIcon, Receipt } from '@/lib/icons'
 import { useSession } from '@/supabase/session/SessionProvider'
 
@@ -33,7 +32,7 @@ import { CreditCard } from './credit-usage/CreditCard'
 import { UsagePane } from './credit-usage/UsagePane'
 import { useCreditUsage } from './credit-usage/useCreditUsage'
 import { longDate, shortDate } from './checkout-copy'
-import { AgentMeter, BilledFlow, CardOnFile, CountFlow, IntervalToggle, Notice, PayFooter, PlanCard, RightTitle, SuccessPanel, SummaryRows, SwitchOffAlert, TermsConsent, usd } from './parts'
+import { BilledFlow, CardOnFile, CountFlow, IntervalToggle, Notice, PayFooter, PlanCard, RightTitle, SuccessPanel, SummaryRows, TermsConsent, usd } from './parts'
 import { StripeCheckoutProvider, StripePaymentFields, StripePaymentFieldsSkeleton } from './StripeCheckout'
 import { usePlanQuote } from './usePlanQuote'
 
@@ -46,14 +45,13 @@ function billed(cents: number, interval: BillingInterval): string {
 
 // What the plan bills each interval at `quantities`, with the legacy price and the promos it keeps.
 function planBillCents(state: SubscriptionState, quantities: AddonQuantities, interval: BillingInterval): number {
-    return Math.max(0, planPriceCents(quantities, interval, state.priceArm) - planDiscountCents(state, quantities, interval))
+    return Math.max(0, planPriceCents(quantities, interval, state.priceArm) - planDiscountCents(state, interval))
 }
 
 function statusOf(state: SubscriptionState): { label: string; tone: BadgeTone } {
     if (state.status === 'past_due') return { label: 'Payment failed', tone: 'red' }
     if (state.cancelAtPeriodEnd) return { label: state.periodEnd ? `Ends ${shortDate(state.periodEnd)}` : 'Ending', tone: 'orange' }
     if (state.pendingSwitch) return { label: `Monthly from ${shortDate(state.pendingSwitch.at)}`, tone: 'yellow' }
-    if (state.pendingDowngrade.max_agents != null && state.periodEnd) return { label: `${state.pendingDowngrade.max_agents} coworkers from ${shortDate(state.periodEnd)}`, tone: 'yellow' }
     return { label: 'Active', tone: 'green' }
 }
 
@@ -74,9 +72,6 @@ export function PlanDialog({
     appSlots?: Partial<Record<AppSlug, AppSlotsState>>
 }) {
     const { refreshWorkspace } = useSession()
-    const { activeAgentsCount } = useEntitlements()
-    const currentAgents = agentsForPacks(state.quantities.agent_pack)
-    const [agents, setAgents] = useState(currentAgents)
     const currentSlots = appSlotsOf(state.quantities)
     const [slots, setSlots] = useState<AppSlots>(currentSlots)
     const enabledApps = useEnabledPaidApps()
@@ -91,9 +86,9 @@ export function PlanDialog({
 
     const pastDue = state.status === 'past_due'
     const locked = pastDue || state.cancelAtPeriodEnd || !!success
-    const dirty = agents !== currentAgents || APP_SLUGS.some(slug => slots[slug] !== currentSlots[slug]) || interval !== state.interval
+    const dirty = APP_SLUGS.some(slug => slots[slug] !== currentSlots[slug]) || interval !== state.interval
     const renewal = state.periodEnd ? shortDate(state.periodEnd) : 'your renewal'
-    const selection: PlanSelection = { quantities: withAppSlots({ ...state.quantities, agent_pack: packsForAgents(agents) }, slots), interval }
+    const selection: PlanSelection = { quantities: withAppSlots(state.quantities, slots), interval }
     const currentBillCents = planBillCents(state, state.quantities, state.interval)
 
     const done = async (next: Success) => {
@@ -103,7 +98,6 @@ export function PlanDialog({
     }
 
     const reset = () => {
-        setAgents(currentAgents)
         setSlots(currentSlots)
         setBillingInterval(state.interval)
     }
@@ -117,14 +111,12 @@ export function PlanDialog({
                 </Badge>
                 <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Rerun Pro</h2>
                 <p className="text-base text-muted-foreground">
-                    {currentAgents} coworkers · billed {state.interval} · {state.cancelAtPeriodEnd ? 'ends' : 'renews'} {renewal}
+                    Unlimited coworkers · billed {state.interval} · {state.cancelAtPeriodEnd ? 'ends' : 'renews'} {renewal}
                 </p>
             </div>
             <div className="mt-6 flex flex-col gap-3">
                 <IntervalToggle value={interval} onChange={setBillingInterval} disabled={locked} />
-                <PlanCard agents={agents} interval={interval} priceArm={state.priceArm} discountCents={planDiscountCents(state, selection.quantities, interval)}>
-                    <AgentMeter running={activeAgentsCount} current={currentAgents} value={agents} pausesOn={renewal} onChange={setAgents} disabled={locked} />
-                </PlanCard>
+                <PlanCard interval={interval} priceArm={state.priceArm} discountCents={planDiscountCents(state, interval)} />
             </div>
             <div className="mt-3">
                 <CreditCard credit={credit} highlight={drill === 'credit'} onAdd={state.cancelAtPeriodEnd || pastDue ? undefined : () => setDrill('credit')} onOpenUsage={state.cancelAtPeriodEnd || pastDue ? undefined : () => setDrill('usage')} />
@@ -158,7 +150,7 @@ export function PlanDialog({
         if (success) return <SuccessPanel title={success.title} body={success.body} rows={success.rows} cta="Done" onDone={onClose} />
         if (pastDue) return <PastDuePane state={state} onDone={() => void done({ title: 'Payment received', body: 'Your card is updated and Pro is active again.' })} />
         if (state.cancelAtPeriodEnd) return <CancelPendingPane state={state} currentBillCents={currentBillCents} onResumed={() => void done({ title: 'Pro is back on', body: `Your plan renews on ${renewal}.` })} />
-        if (dirty) return <ChangePane state={state} currentBillCents={currentBillCents} selection={selection} activeAgents={activeAgentsCount} onReset={reset} onDone={next => void done(next)} />
+        if (dirty) return <ChangePane state={state} currentBillCents={currentBillCents} selection={selection} onReset={reset} onDone={next => void done(next)} />
 
         return (
             <PanelSteps stepKey={drill} depth={drill === 'overview' ? 0 : 1}>
@@ -202,7 +194,6 @@ function OverviewPane({ state, creditLeftMicros, onCard, onInvoices, onUsage, on
         { label: 'Next invoice', value: state.nextInvoice ? `${shortDate(state.nextInvoice.at)} · ${usd(state.nextInvoice.amountCents)}` : '-' },
         { label: 'Billed', value: `${state.interval === 'yearly' ? 'Yearly' : 'Monthly'}, tax included`, muted: true },
         ...(state.pendingSwitch ? [{ label: 'From ' + shortDate(state.pendingSwitch.at), value: `Monthly · ${billed(planPriceCents(state.pendingSwitch.selection.quantities, 'monthly', state.priceArm), 'monthly')}` }] : []),
-        ...(state.pendingDowngrade.max_agents != null && state.periodEnd ? [{ label: 'From ' + shortDate(state.periodEnd), value: `${state.pendingDowngrade.max_agents} coworkers` }] : []),
     ]
 
     return (
@@ -237,7 +228,7 @@ function OverviewPane({ state, creditLeftMicros, onCard, onInvoices, onUsage, on
                     )}
                 </div>
                 <div className="mt-auto flex flex-col gap-3 pt-6">
-                    <p className="text-center text-xs text-muted-foreground">Move the slider or switch the billing to see the new price.</p>
+                    <p className="text-center text-xs text-muted-foreground">Switch the billing to see the new price.</p>
                     {state.cancelPhase && (
                         <button type="button" onClick={onCancel} className="text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground">
                             Cancel plan
@@ -249,19 +240,17 @@ function OverviewPane({ state, creditLeftMicros, onCard, onInvoices, onUsage, on
     )
 }
 
-// What moving the slider or the toggle would do, quoted before anything is applied.
+// What switching the billing or the app slots would do, quoted before anything is applied.
 function ChangePane({
     state,
     currentBillCents,
     selection,
-    activeAgents,
     onReset,
     onDone,
 }: {
     state: SubscriptionState
     currentBillCents: number
     selection: PlanSelection
-    activeAgents: number
     onReset: () => void
     onDone: (success: Success) => void
 }) {
@@ -269,11 +258,9 @@ function ChangePane({
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const agents = agentsForPacks(selection.quantities.agent_pack)
-    const currentAgents = agentsForPacks(state.quantities.agent_pack)
     const slots = appSlotsOf(selection.quantities)
     const currentSlots = appSlotsOf(state.quantities)
-    const planLabel = (agentCount: number, slotCounts: AppSlots) => `${agentCount} coworkers${appSlotsLabel(slotCounts)}`
+    const planLabel = (slotCounts: AppSlots) => `Unlimited coworkers${appSlotsLabel(slotCounts)}`
     const changedApps = APP_SLUGS.filter(slug => slots[slug] !== currentSlots[slug])
     const interval = selection.interval
     const newBillCents = planBillCents(state, selection.quantities, interval)
@@ -281,9 +268,8 @@ function ChangePane({
     const renewal = state.periodEnd ? shortDate(state.periodEnd) : 'your renewal'
     const switchingDown = state.interval === 'yearly' && interval === 'monthly'
     const switchingUp = state.interval === 'monthly' && interval === 'yearly'
-    const increase = selection.quantities.agent_pack > state.quantities.agent_pack || APP_SLUGS.some(slug => slots[slug] > currentSlots[slug])
+    const increase = APP_SLUGS.some(slug => slots[slug] > currentSlots[slug])
     const chargesToday = switchingUp || increase
-    const pausing = Math.max(0, activeAgents - agents)
 
     const quote = usePlanQuote(selection, chargesToday)
 
@@ -294,12 +280,12 @@ function ChangePane({
         setSubmitting(false)
         if (!result.ok) return setError(result.error)
         if (result.switchAt) return onDone({ title: 'Switch scheduled', body: `Your yearly plan runs to its end. Monthly billing starts on ${shortDate(result.switchAt)}.` })
-        if (!chargesToday) return onDone({ title: 'Change scheduled', body: `You keep ${planLabel(currentAgents, currentSlots)} until ${renewal}, then ${planLabel(agents, slots)} at ${newBill}.` })
-        onDone({ title: 'Plan updated', body: `${planLabel(agents, slots)}, billed ${interval}. Your receipt is on its way by email.` })
+        if (!chargesToday) return onDone({ title: 'Change scheduled', body: `You keep ${planLabel(currentSlots)} until ${renewal}, then ${planLabel(slots)} at ${newBill}.` })
+        onDone({ title: 'Plan updated', body: `${planLabel(slots)}, billed ${interval}. Your receipt is on its way by email.` })
     }
 
     const newBillFlow = <BilledFlow cents={newBillCents} interval={interval} />
-    const onlySlots = agents === currentAgents && !switchingUp && !switchingDown
+    const onlySlots = !switchingUp && !switchingDown
     const title = switchingDown ? (
         'Switch to monthly'
     ) : onlySlots && changedApps.length === 1 ? (
@@ -309,26 +295,24 @@ function ChangePane({
     ) : onlySlots ? (
         'Change your app slots'
     ) : (
-        <>
-            Change to <CountFlow value={agents} /> coworkers{switchingUp ? ', yearly' : ''}
-        </>
+        'Switch to yearly'
     )
     const quoteValue = (cents: number | undefined) => (quote === 'loading' ? <Skeleton className="inline-block h-4 w-14" /> : cents == null ? '-' : usd(cents))
 
     const rows = chargesToday
         ? [
-              { label: `Pro · ${planLabel(agents, slots)}, ${interval}`, value: newBillFlow },
+              { label: `Pro · ${planLabel(slots)}, ${interval}`, value: newBillFlow },
               ...(switchingUp ? [{ label: `Unused time on your ${state.interval} plan`, value: quote && quote !== 'loading' ? `-${usd(quote.unusedCreditCents)}` : quoteValue(undefined), muted: true }] : []),
               { label: 'Due today, tax included', value: quoteValue(quote && quote !== 'loading' ? quote.dueTodayCents : undefined), strong: true },
               ...(switchingDown ? [{ label: 'From ' + renewal, value: <>Monthly · {newBillFlow}</>, muted: true }] : []),
           ]
         : [
-              { label: 'Until ' + renewal, value: `${planLabel(currentAgents, currentSlots)} · ${billed(currentBillCents, state.interval)}` },
+              { label: 'Until ' + renewal, value: `${planLabel(currentSlots)} · ${billed(currentBillCents, state.interval)}` },
               {
                   label: 'From ' + renewal,
                   value: (
                       <>
-                          {planLabel(agents, slots)} · {newBillFlow}
+                          {planLabel(slots)} · {newBillFlow}
                       </>
                   ),
                   strong: true,
@@ -342,16 +326,11 @@ function ChangePane({
             </RightTitle>
             <div className="mt-6 flex flex-col gap-3">
                 <SummaryRows rows={rows} />
-                {pausing > 0 && (
-                    <SwitchOffAlert title={`${pausing} ${pausing === 1 ? 'coworker switches off' : 'coworkers switch off'} ${chargesToday ? 'once the change applies' : `on ${renewal}`}`}>
-                        {activeAgents} coworkers run today. The {pausing} most recently added switch off with their data saved. You can switch them back on whenever a slot frees up.
-                    </SwitchOffAlert>
-                )}
                 {chargesToday && <CardOnFile card={state.card} />}
             </div>
             <PayFooter
                 cta={chargesToday ? 'Confirm and pay' : switchingDown ? `Switch on ${renewal}` : `Schedule for ${renewal}`}
-                footnote={chargesToday ? (switchingDown ? `Billed now for the extra coworkers. Monthly billing starts on ${renewal}.` : onlySlots ? 'The new slots are ready as soon as the payment goes through.' : 'The new coworkers are available as soon as the payment goes through.') : 'Nothing is charged today.'}
+                footnote={chargesToday ? (switchingDown ? `Billed now for the new slots. Monthly billing starts on ${renewal}.` : onlySlots ? 'The new slots are ready as soon as the payment goes through.' : 'Your yearly plan starts as soon as the payment goes through.') : 'Nothing is charged today.'}
                 onClick={() => void apply()}
                 loading={submitting}
                 disabled={(chargesToday && (!accepted || quote === 'loading'))}

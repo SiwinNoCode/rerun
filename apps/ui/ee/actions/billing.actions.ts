@@ -46,7 +46,7 @@ const sessionIdSchema = z.string().trim().min(1).max(200)
 const requireBillingAdmin = () => requireAdminContext('Only an admin can manage billing')
 
 const planSelectionSchema = z.object({
-    quantities: z.object({ agent_pack: z.number().int().min(0).max(1000), credit_pack: z.number().int().min(0).max(1000), linkedin_slot: z.number().int().min(0).max(1000), whatsapp_slot: z.number().int().min(0).max(1000) }),
+    quantities: z.object({ credit_pack: z.number().int().min(0).max(1000), linkedin_slot: z.number().int().min(0).max(1000), whatsapp_slot: z.number().int().min(0).max(1000) }),
     interval: z.enum(BILLING_INTERVALS),
 })
 

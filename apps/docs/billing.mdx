@@ -1,16 +1,16 @@
 ---
 title: "Plans and billing"
-description: "One plan, two add-ons, and what happens when you outgrow it."
+description: "One plan with unlimited coworkers, the add-ons, and the trial."
 ---
 
-Rerun sells a single plan that you extend with add-ons. There are no tiers to compare and no feature held back for a higher one.
+Rerun sells a single plan with unlimited coworkers. There are no tiers to compare and no feature held back for a higher one.
 
 ## The base plan
 
 <Card title="Rerun" icon="box">
   **Billed per month or per year**, at the price your workspace shows when you start the plan. Five day free trial.
 
-  Includes **5 coworkers**, **unlimited seats**, **your own private machine** and **Rerun credits every month**.
+  Includes **unlimited coworkers**, **unlimited seats**, **your own private machine** and **Rerun credits every month**.
 </Card>
 
 Also included at every level:
@@ -27,7 +27,6 @@ Add-ons are quantities on the same subscription. Add and remove them whenever yo
 
 | Add-on | What it grants | Price |
 | --- | --- | --- |
-| Extra coworkers | +5 coworkers | \$10 |
 | Rerun credits | More credits every month | \$10 |
 
 ## The trial
@@ -52,22 +51,19 @@ Every run records what its model cost, in dollars, so you can see where the cred
 
 ## When you hit a limit
 
-Going over your coworker count does not delete anything. The coworkers over the limit are switched off and stay exactly as they were: their prompt, their skills, their memory and their data are untouched.
+Only the trial has a coworker limit. Going over it does not delete anything. The coworkers past the third are switched off and stay exactly as they were: their prompt, their skills, their memory and their data are untouched.
 
-Free a slot by deleting a coworker, or add a coworker pack, and they switch back on.
+Start your plan from **Billing** and every coworker can run: switch them back on from their panel.
 
 The same applies through the API: [`create_agent`](/api/tools/agents#create-agent) succeeds and returns `active: false` with the reason, rather than failing halfway.
 
 ## Managing the subscription
 
-Open the workspace pill in the top left corner, then **Billing**. From there you change add-on quantities, update your card and cancel.
+Open the workspace pill in the top left corner, then **Billing**. From there you change add-on quantities, switch between monthly and yearly, update your card and cancel.
 
 Adding an add-on takes effect immediately and is billed for the remainder of the current period. Removing one takes effect at the next renewal: you keep the limit you already paid for until then.
 
-Two things to know:
-
-- Adding an add-on during the trial ends the trial. Nothing is sold on top of a period nobody pays for, so the first full cycle is invoiced there and then.
-- You cannot drop below what you already use. Delete a coworker or remove a member before removing the matching add-on.
+Adding an add-on during the trial ends the trial. Nothing is sold on top of a period nobody pays for, so the first full cycle is invoiced there and then.
 
 To leave Rerun altogether, cancel the subscription first, then [delete your account](/teams#delete-your-account).
 

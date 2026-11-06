@@ -34,7 +34,7 @@ vi.mock('@/ee/services/billing.service', () => ({
     updatePlanCheckoutSession: vi.fn(),
 }))
 
-const SELECTION = { quantities: { agent_pack: 1, credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 }, interval: 'yearly' } as const
+const SELECTION = { quantities: { credit_pack: 1, linkedin_slot: 0, whatsapp_slot: 0 }, interval: 'yearly' } as const
 
 beforeEach(() => {
     vi.resetAllMocks()
@@ -140,9 +140,16 @@ describe('the thin billing actions', () => {
     })
 
     it('refuses a selection the schema does not know before reaching the service', async () => {
-        await expect(changePlanAction({ quantities: { agent_pack: -1, credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 }, interval: 'monthly' })).resolves.toMatchObject({ ok: false })
-        await expect(createPlanCheckoutAction({ quantities: { agent_pack: 0, credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 }, interval: 'weekly' as never })).resolves.toMatchObject({ ok: false })
+        await expect(changePlanAction({ quantities: { credit_pack: -1, linkedin_slot: 0, whatsapp_slot: 0 }, interval: 'monthly' })).resolves.toMatchObject({ ok: false })
+        await expect(createPlanCheckoutAction({ quantities: { credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 }, interval: 'weekly' as never })).resolves.toMatchObject({ ok: false })
         expect(billing.changePlan).not.toHaveBeenCalled()
         expect(billing.createPlanCheckoutSession).not.toHaveBeenCalled()
+    })
+
+    it('drops the agent pack a page loaded before the deploy still sends, rather than refusing the change', async () => {
+        vi.mocked(billing.changePlan).mockResolvedValue({ trialEnded: true, switchAt: null })
+        const stale = { quantities: { agent_pack: 3, credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 }, interval: 'monthly' } as never
+        await expect(changePlanAction(stale)).resolves.toMatchObject({ ok: true })
+        expect(billing.changePlan).toHaveBeenCalledWith({ quantities: { credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 }, interval: 'monthly' })
     })
 })

@@ -1,7 +1,7 @@
 import type Stripe from 'stripe'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BASE_PLAN } from './plans'
-import { addonForPriceId, basePriceId, intervalOfItems, isBasePriceId, isPlanPriceId, isYearlyBasePriceId, legacyBaseDiscountCents, priceArmOfItems, priceIdForAddon, quantitiesFromItems, stripe, subscriptionOfInvoice } from './stripe'
+import { addonForPriceId, basePriceId, intervalOfItems, isBasePriceId, isLegacyAgentPackPriceId, isPlanPriceId, isYearlyBasePriceId, legacyBaseDiscountCents, priceArmOfItems, priceIdForAddon, quantitiesFromItems, stripe, subscriptionOfInvoice } from './stripe'
 
 function item(priceId: string | null, quantity?: number, price: Partial<Stripe.Price> = {}): Stripe.SubscriptionItem {
     return { id: `si_${priceId}`, quantity, price: priceId === null ? null : { id: priceId, currency: 'usd', unit_amount: BASE_PLAN.priceCents, ...price } } as unknown as Stripe.SubscriptionItem
@@ -17,18 +17,18 @@ describe('quantitiesFromItems', () => {
         expect(quantitiesFromItems([item('price_base_legacy', 1)]).hasBase).toBe(true)
     })
 
-    it('adds up the quantities of duplicate add-on items and counts nothing for a legacy seat', () => {
-        const { hasBase, quantities } = quantitiesFromItems([item('price_base', 1), item('price_agent_pack', 2), item('price_agent_pack', 3), item('price_seat', 1)])
+    it('adds up the quantities of duplicate add-on items and counts nothing for a legacy seat or agent pack', () => {
+        const { hasBase, quantities } = quantitiesFromItems([item('price_base', 1), item('price_credit_pack', 2), item('price_credit_pack', 3), item('price_agent_pack', 2), item('price_agent_pack_yearly', 1), item('price_seat', 1)])
         expect(hasBase).toBe(true)
-        expect(quantities).toEqual({ agent_pack: 5, credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 })
+        expect(quantities).toEqual({ credit_pack: 5, linkedin_slot: 0, whatsapp_slot: 0 })
     })
 
     it('reads a yearly plan like a monthly one', () => {
-        expect(quantitiesFromItems([item('price_base_yearly', 1), item('price_agent_pack_yearly', 2), item('price_credit_pack_yearly', 1)])).toEqual({ hasBase: true, quantities: { agent_pack: 2, credit_pack: 1, linkedin_slot: 0, whatsapp_slot: 0 } })
+        expect(quantitiesFromItems([item('price_base_yearly', 1), item('price_agent_pack_yearly', 2), item('price_credit_pack_yearly', 1)])).toEqual({ hasBase: true, quantities: { credit_pack: 1, linkedin_slot: 0, whatsapp_slot: 0 } })
     })
 
     it('ignores an item on a price that is not part of the plan', () => {
-        expect(quantitiesFromItems([item('price_template', 4), item(null, 2)])).toEqual({ hasBase: false, quantities: { agent_pack: 0, credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 } })
+        expect(quantitiesFromItems([item('price_template', 4), item(null, 2)])).toEqual({ hasBase: false, quantities: { credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 } })
     })
 
     it('counts an add-on item without a quantity as zero', () => {
@@ -65,7 +65,7 @@ describe('legacyBaseDiscountCents', () => {
 
 describe('the LinkedIn slot', () => {
     it('reads as a plan add-on, never as a template purchase', () => {
-        expect(quantitiesFromItems([item('price_base', 1), item('price_linkedin_slot', 2)])).toEqual({ hasBase: true, quantities: { agent_pack: 0, credit_pack: 0, linkedin_slot: 2, whatsapp_slot: 0 } })
+        expect(quantitiesFromItems([item('price_base', 1), item('price_linkedin_slot', 2)])).toEqual({ hasBase: true, quantities: { credit_pack: 0, linkedin_slot: 2, whatsapp_slot: 0 } })
         expect(isPlanPriceId('price_linkedin_slot_yearly')).toBe(true)
     })
 })
@@ -85,7 +85,7 @@ describe('the arms of the price test', () => {
     it('counts a $29 base price as the base plan', () => {
         expect(isBasePriceId('price_base_29')).toBe(true)
         expect(isBasePriceId('price_base_29_yearly')).toBe(true)
-        expect(quantitiesFromItems([item('price_base_29', 1), item('price_agent_pack', 2)])).toEqual({ hasBase: true, quantities: { agent_pack: 2, credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 } })
+        expect(quantitiesFromItems([item('price_base_29', 1), item('price_agent_pack', 2)])).toEqual({ hasBase: true, quantities: { credit_pack: 0, linkedin_slot: 0, whatsapp_slot: 0 } })
     })
 
     it('knows the yearly price of either arm', () => {
@@ -114,7 +114,7 @@ describe('price id lookups', () => {
         expect(isPlanPriceId(undefined)).toBe(false)
     })
 
-    it('recognises the base, legacy, yearly and add-on prices as plan prices', () => {
+    it('recognises the base, legacy, yearly and add-on prices as plan prices, the agent packs no longer sold included', () => {
         for (const id of ['price_base', 'price_base_legacy', 'price_base_yearly', 'price_agent_pack', 'price_agent_pack_yearly', 'price_seat', 'price_credit_pack', 'price_credit_pack_yearly']) {
             expect(isPlanPriceId(id)).toBe(true)
         }
@@ -122,8 +122,8 @@ describe('price id lookups', () => {
     })
 
     it('maps each add-on price back to its key, whatever its interval', () => {
-        expect(addonForPriceId('price_agent_pack')).toBe('agent_pack')
-        expect(addonForPriceId('price_agent_pack_yearly')).toBe('agent_pack')
+        expect(addonForPriceId('price_agent_pack')).toBeUndefined()
+        expect(addonForPriceId('price_agent_pack_yearly')).toBeUndefined()
         expect(addonForPriceId('price_seat')).toBeUndefined()
         expect(addonForPriceId('price_credit_pack')).toBe('credit_pack')
         expect(addonForPriceId('price_credit_pack_yearly')).toBe('credit_pack')
@@ -147,12 +147,26 @@ describe('price id lookups', () => {
     it('returns the configured price for each interval', () => {
         expect(basePriceId()).toBe('price_base')
         expect(basePriceId('yearly')).toBe('price_base_yearly')
-        expect(priceIdForAddon('agent_pack', 'yearly')).toBe('price_agent_pack_yearly')
+        expect(priceIdForAddon('credit_pack', 'yearly')).toBe('price_credit_pack_yearly')
     })
 
     it('names the missing yearly variable', () => {
+        vi.stubEnv('STRIPE_PRICE_CREDIT_PACK_YEARLY', '')
+        expect(() => priceIdForAddon('credit_pack', 'yearly')).toThrow(/STRIPE_PRICE_CREDIT_PACK_YEARLY/)
+    })
+
+    it('knows an agent pack price in either interval as a legacy item, and nothing else', () => {
+        expect(isLegacyAgentPackPriceId('price_agent_pack')).toBe(true)
+        expect(isLegacyAgentPackPriceId('price_agent_pack_yearly')).toBe(true)
+        expect(isLegacyAgentPackPriceId('price_credit_pack')).toBe(false)
+        expect(isLegacyAgentPackPriceId(null)).toBe(false)
+    })
+
+    it('recognises no agent pack once its variables are gone', () => {
+        vi.stubEnv('STRIPE_PRICE_AGENT_PACK', '')
         vi.stubEnv('STRIPE_PRICE_AGENT_PACK_YEARLY', '')
-        expect(() => priceIdForAddon('agent_pack', 'yearly')).toThrow(/STRIPE_PRICE_AGENT_PACK_YEARLY/)
+        expect(isLegacyAgentPackPriceId('')).toBe(false)
+        expect(isLegacyAgentPackPriceId('price_agent_pack')).toBe(false)
     })
 })
 

@@ -14,10 +14,9 @@ type PlanPriceKey = 'base' | AddonKey
 // products/prices and prints these values). The prices carry metadata in Stripe; the
 // env mapping keeps the lookup cheap and avoids a round-trip on every checkout.
 const PRICE_ENV_NAMES: Record<BillingInterval, Record<PlanPriceKey, string>> = {
-    monthly: { base: 'STRIPE_PRICE_BASE', agent_pack: 'STRIPE_PRICE_AGENT_PACK', credit_pack: 'STRIPE_PRICE_CREDIT_PACK', linkedin_slot: 'STRIPE_PRICE_LINKEDIN_SLOT', whatsapp_slot: 'STRIPE_PRICE_WHATSAPP_SLOT' },
+    monthly: { base: 'STRIPE_PRICE_BASE', credit_pack: 'STRIPE_PRICE_CREDIT_PACK', linkedin_slot: 'STRIPE_PRICE_LINKEDIN_SLOT', whatsapp_slot: 'STRIPE_PRICE_WHATSAPP_SLOT' },
     yearly: {
         base: 'STRIPE_PRICE_BASE_YEARLY',
-        agent_pack: 'STRIPE_PRICE_AGENT_PACK_YEARLY',
         credit_pack: 'STRIPE_PRICE_CREDIT_PACK_YEARLY',
         linkedin_slot: 'STRIPE_PRICE_LINKEDIN_SLOT_YEARLY',
         whatsapp_slot: 'STRIPE_PRICE_WHATSAPP_SLOT_YEARLY',
@@ -68,6 +67,19 @@ export function isLegacySeatPriceId(priceId?: string | null): boolean {
     return !!priceId && priceId === process.env.STRIPE_PRICE_SEAT
 }
 
+// The agent pack is no longer sold either: a paid plan runs as many coworkers as it builds. Same
+// reasoning as the seat: until its item is removed, it still belongs to the plan.
+const LEGACY_AGENT_PACK_ENV_NAMES = ['STRIPE_PRICE_AGENT_PACK', 'STRIPE_PRICE_AGENT_PACK_YEARLY'] as const
+
+export function isLegacyAgentPackPriceId(priceId?: string | null): boolean {
+    return !!priceId && LEGACY_AGENT_PACK_ENV_NAMES.some(name => process.env[name] === priceId)
+}
+
+// An item the plan no longer sells, deleted by any change made to the plan.
+export function isLegacyPlanItemPriceId(priceId?: string | null): boolean {
+    return isLegacySeatPriceId(priceId) || isLegacyAgentPackPriceId(priceId)
+}
+
 // The base plan's price. Read straight from the env rather than through basePriceId(): asking
 // "is this the base item?" must not throw when the variable is missing.
 //
@@ -110,7 +122,7 @@ export function legacyBaseDiscountCents(items: Stripe.SubscriptionItem[]): numbe
 // add-ons. Anything else on the customer is a marketplace template purchase.
 export function isPlanPriceId(priceId?: string | null): boolean {
     if (!priceId) return false
-    return isBasePriceId(priceId) || !!addonForPriceId(priceId) || isLegacySeatPriceId(priceId)
+    return isBasePriceId(priceId) || !!addonForPriceId(priceId) || isLegacyPlanItemPriceId(priceId)
 }
 
 // The invoice's subscription moved under `parent.subscription_details` in recent API versions;
@@ -126,7 +138,7 @@ export async function subscriptionOfInvoice(invoice: Stripe.Invoice): Promise<St
 }
 
 // Read the plan state off a subscription's items: whether the base plan is present, and
-// each add-on's quantity. A legacy seat item counts for nothing: seats are no longer sold.
+// each add-on's quantity. A legacy seat or agent pack item counts for nothing: neither is sold.
 export function quantitiesFromItems(items: Stripe.SubscriptionItem[]): { hasBase: boolean; quantities: AddonQuantities } {
     let hasBase = false
     const quantities: AddonQuantities = { ...ZERO_QUANTITIES }

@@ -70,7 +70,7 @@ export default function NewCoworker() {
             const created = await createCoworker({ accessToken, workspaceId }, { name: name.trim(), description: description.trim() || undefined, spaceId: boxId })
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
             router.replace({ pathname: '/chat/[id]', params: { id: created.sessionId ?? 'new', to: created.agentId } })
-            if (!created.active) Alert.alert(`${name.trim()} is paused`, 'Your plan has no free coworker slot. Free one, or add one at rerun.build.')
+            if (!created.active) Alert.alert(`${name.trim()} is paused`, 'Your plan has no free coworker slot. Start Pro at rerun.build for unlimited coworkers.')
         } catch (err) {
             setCreating(false)
             Alert.alert('Could not create the coworker', err instanceof Error ? err.message : 'Try again in a moment.')

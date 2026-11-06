@@ -9,7 +9,7 @@ import { selectCount, selectSingle } from '@/supabase/supabase-helpers'
 // costs money, and a workspace gets exactly one.
 
 // `agents.disabled_reason` records the cause: this one means "there was no slot for it", which a
-// bigger plan or a freed slot can fix. The other producer is a template revocation, which cannot.
+// paid plan or a freed slot can fix. The other producer is a template revocation, which cannot.
 export const PLAN_LIMIT_REASON = 'plan_limit'
 
 export function isPlanLimited(disabledReason: string | null): boolean {

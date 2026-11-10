@@ -28,16 +28,12 @@ function usePlanWindowName() {
     }
 }
 
-// How far into its plan a subscription is, beside its name in a model picker. One figure for the
-// whole group: the limits are the subscription's, every model under it draws on the same ones.
-export function PlanLimitHint({ windows, provider }: { windows: PlanLimitWindow[]; provider?: string }) {
+// One line per window of a plan, with its reset: what a hover on its usage spells out.
+export function PlanLimitDetail({ windows, provider }: { windows: PlanLimitWindow[]; provider?: string }) {
     const t = useTranslations('agent.planLimitHint')
     const locale = useLocale()
     const windowName = usePlanWindowName()
-    const tightest = tightestPlanWindow(windows)
-    if (!tightest) return null
-
-    const detail = (
+    return (
         <span className="flex flex-col gap-0.5">
             {windows.map(window => {
                 const values = { name: windowName(window, provider), percent: planWindowPercent(window) }
@@ -47,9 +43,34 @@ export function PlanLimitHint({ windows, provider }: { windows: PlanLimitWindow[
             })}
         </span>
     )
+}
+
+// The windows a model pill rings, in one line for a screen reader.
+export function usePlanWindowsSummary() {
+    const t = useTranslations('agent.planLimitHint')
+    const windowName = usePlanWindowName()
+    return (windows: PlanLimitWindow[], provider?: string) => windows.map(window => t('windowUsed', { name: windowName(window, provider), percent: planWindowPercent(window) })).join(', ')
+}
+
+export function useRerunCreditDetail() {
+    const t = useTranslations('agent.planLimitHint')
+    const locale = useLocale()
+    return (credit: RerunCredit) => {
+        const date = credit.resetAt ? shortDate(credit.resetAt, locale) : null
+        if (isCreditUsedUp(credit)) return date ? t('credit.usedUpOn', { date }) : t('credit.usedUpNextMonth')
+        return date ? t('credit.usageOn', { percent: credit.percent, date }) : t('credit.usageNextMonth', { percent: credit.percent })
+    }
+}
+
+// How far into its plan a subscription is, beside its name in a model picker. One figure for the
+// whole group: the limits are the subscription's, every model under it draws on the same ones.
+export function PlanLimitHint({ windows, provider }: { windows: PlanLimitWindow[]; provider?: string }) {
+    const locale = useLocale()
+    const tightest = tightestPlanWindow(windows)
+    if (!tightest) return null
 
     return (
-        <TooltipLabeled label={detail} side="right">
+        <TooltipLabeled label={<PlanLimitDetail windows={windows} provider={provider} />} side="right">
             <span className={cn('ml-auto shrink-0 pl-2 font-normal tabular-nums', TONE_CLASS[planLimitTone(tightest.usedPercent)])}>
                 {planWindowPercent(tightest)}
                 {tightest.resetsAt ? ` · ${compactUntil(tightest.resetsAt, locale)}` : ''}
@@ -64,6 +85,7 @@ export function RerunCreditHint({ credit }: { credit: RerunCredit }) {
     const t = useTranslations('agent.planLimitHint')
     const tShared = useTranslations('agent.modelsShared')
     const locale = useLocale()
+    const creditDetail = useRerunCreditDetail()
 
     if (credit.paused) {
         return (
@@ -74,17 +96,8 @@ export function RerunCreditHint({ credit }: { credit: RerunCredit }) {
     }
     if (credit.budgetMicros <= 0) return null
 
-    const date = credit.resetAt ? shortDate(credit.resetAt, locale) : null
-    const detail = isCreditUsedUp(credit)
-        ? date
-            ? t('credit.usedUpOn', { date })
-            : t('credit.usedUpNextMonth')
-        : date
-          ? t('credit.usageOn', { percent: credit.percent, date })
-          : t('credit.usageNextMonth', { percent: credit.percent })
-
     return (
-        <TooltipLabeled label={detail} side="right">
+        <TooltipLabeled label={creditDetail(credit)} side="right">
             <span className={cn('ml-auto shrink-0 pl-2 font-normal tabular-nums', TONE_CLASS[planLimitTone(credit.percent)])}>
                 {credit.percent}%{credit.resetAt ? ` · ${compactUntil(credit.resetAt, locale)}` : ''}
             </span>

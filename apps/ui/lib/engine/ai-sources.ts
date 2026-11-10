@@ -269,6 +269,24 @@ export function tightestPlanWindow(windows: PlanLimitWindow[]): PlanLimitWindow 
     return windows.reduce<PlanLimitWindow | null>((tightest, window) => (!tightest || window.usedPercent > tightest.usedPercent ? window : tightest), null)
 }
 
+// What the model pill draws around its logo: the session inside, and outside the longer window that
+// runs out first. A plan with a single window, or the Rerun credit, fills one ring on its own.
+// `windows` are the plan windows the rings stand for, empty for the Rerun credit.
+export type PillUsage = { inner: number; outer: number | null; windows: PlanLimitWindow[] }
+
+export function pillUsage(group: { connectionId: string; planWindows: PlanLimitWindow[] }, credit: RerunCredit): PillUsage | null {
+    if (group.connectionId === RERUN_CONNECTION_ID) {
+        if (credit.paused || credit.budgetMicros <= 0) return null
+        return { inner: credit.percent, outer: null, windows: [] }
+    }
+    const session = group.planWindows.find(window => window.kind === 'session')
+    const longest = tightestPlanWindow(group.planWindows.filter(window => window.kind !== 'session'))
+    const inner = session ?? longest
+    if (!inner) return null
+    const outer = session ? longest : null
+    return { inner: inner.usedPercent, outer: outer?.usedPercent ?? null, windows: outer ? [inner, outer] : [inner] }
+}
+
 export type PlanLimitTone = 'brand' | 'warning' | 'destructive'
 
 export function planLimitTone(usedPercent: number): PlanLimitTone {

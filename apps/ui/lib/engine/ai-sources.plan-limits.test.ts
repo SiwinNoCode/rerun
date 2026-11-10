@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { PlanLimitWindow } from '@rerun/contracts'
-import { isUsable, livePlanWindows, planLimitTone, planWindowName, providerPitch, sourceSummary, tightestPlanWindow, type RerunCredit } from './ai-sources'
+import { RERUN_CONNECTION_ID, type PlanLimitWindow } from '@rerun/contracts'
+import { isUsable, livePlanWindows, pillUsage, planLimitTone, planWindowName, providerPitch, sourceSummary, tightestPlanWindow, type RerunCredit } from './ai-sources'
 import { englishTranslator } from '@/lib/i18n/english-translator'
 import type { BoxConnection } from './types'
 
@@ -93,5 +93,37 @@ describe('sourceSummary of an API key', () => {
     it('pitches every provider the way the picker always did', () => {
         expect(providerPitch('claude', englishTranslator('connections'))).toEqual({ title: 'Claude Pro or Max', hint: 'Sign in with your Claude account' })
         expect(providerPitch('custom', englishTranslator('connections')).hint).toBe('Ollama, LM Studio, vLLM or any OpenAI-compatible server')
+    })
+})
+
+describe('pillUsage', () => {
+    const claude = (planWindows: PlanLimitWindow[]) => ({ connectionId: 'c1', planWindows })
+    const monthly: PlanLimitWindow = { kind: 'monthly', label: null, usedPercent: 93, resetsAt: null }
+    const opus: PlanLimitWindow = { kind: 'model', label: 'Opus', usedPercent: 88, resetsAt: null }
+    const rerun = { connectionId: RERUN_CONNECTION_ID, planWindows: [] }
+
+    it('puts the session inside and the weekly window outside', () => {
+        expect(pillUsage(claude([session, weekly]), credit)).toEqual({ inner: 42, outer: 81, windows: [session, weekly] })
+    })
+
+    it('rings the outside with the longer window that runs out first', () => {
+        expect(pillUsage(claude([session, weekly, opus]), credit)?.outer).toBe(88)
+        expect(pillUsage({ connectionId: 'c2', planWindows: [session, weekly, monthly] }, credit)?.outer).toBe(93)
+    })
+
+    it('fills a single ring when the plan has one window', () => {
+        expect(pillUsage(claude([session]), credit)).toEqual({ inner: 42, outer: null, windows: [session] })
+        expect(pillUsage({ connectionId: 'c3', planWindows: [weekly] }, credit)).toEqual({ inner: 81, outer: null, windows: [weekly] })
+    })
+
+    it('draws nothing without a reading', () => {
+        expect(pillUsage(claude([]), credit)).toBeNull()
+    })
+
+    it('rings the Rerun credit of the month, unless there is none or it is paused', () => {
+        const spending: RerunCredit = { usedMicros: 840_000, budgetMicros: 2_000_000, resetAt: null, percent: 42 }
+        expect(pillUsage(rerun, spending)).toEqual({ inner: 42, outer: null, windows: [] })
+        expect(pillUsage(rerun, credit)).toBeNull()
+        expect(pillUsage(rerun, { ...spending, paused: true })).toBeNull()
     })
 })

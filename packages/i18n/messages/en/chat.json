@@ -498,6 +498,14 @@
         },
         "subscribeToKeepWorking": "Subscribe to keep your coworkers working.",
         "resetsNextMonth": "It resets next month.",
+        "lifetime": {
+            "ownConnection": "Your lifetime plan runs on your own AI, and your {plan} plan is connected.",
+            "connectProvider": "Your lifetime plan runs on your own AI. Connect Claude or ChatGPT to keep your coworkers working.",
+            "body": "Your lifetime plan runs on your own AI.",
+            "connectTitle": "Connect your AI",
+            "connectDescription": "Claude, ChatGPT or an API key.",
+            "connectCta": "Connect"
+        },
         "trial": {
             "onPro": "You're on Pro.",
             "resuming": "Your coworker picks the task back up.",

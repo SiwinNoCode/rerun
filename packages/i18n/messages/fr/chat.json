@@ -406,6 +406,14 @@
         },
         "subscribeToKeepWorking": "Abonnez-vous pour que vos coworkers continuent de travailler.",
         "resetsNextMonth": "Ils se renouvellent le mois prochain.",
+        "lifetime": {
+            "ownConnection": "Votre offre à vie fonctionne avec votre propre IA, et votre abonnement {plan} est connecté.",
+            "connectProvider": "Votre offre à vie fonctionne avec votre propre IA. Connectez Claude ou ChatGPT pour que vos coworkers continuent de travailler.",
+            "body": "Votre offre à vie fonctionne avec votre propre IA.",
+            "connectTitle": "Connecter votre IA",
+            "connectDescription": "Claude, ChatGPT ou une clé API.",
+            "connectCta": "Connecter"
+        },
         "trial": {
             "onPro": "Vous êtes sur Pro.",
             "resuming": "Votre coworker reprend la tâche.",

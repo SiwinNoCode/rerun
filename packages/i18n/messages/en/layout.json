@@ -116,6 +116,7 @@
             "unlimitedSeats": "unlimited seats",
             "limits": "{agents} coworkers · {seats}",
             "trial": "Trial · {limits}",
+            "lifetime": "Lifetime · {limits}",
             "limitsUnlimited": "unlimited coworkers · {seats}"
         },
         "adminOnly": {

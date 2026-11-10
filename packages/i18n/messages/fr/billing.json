@@ -199,6 +199,11 @@
             "title": "Impossible de charger votre abonnement",
             "description": "Stripe n'a pas répondu. Votre abonnement est intact, réessayez dans un instant.",
             "retry": "Réessayer"
+        },
+        "lifetime": {
+            "title": "Offre à vie",
+            "description": "Payée une fois, à vous pour de bon. Coworkers et sièges illimités, sur votre propre IA.",
+            "connectAi": "Connecter votre IA"
         }
     },
     "postPayment": {

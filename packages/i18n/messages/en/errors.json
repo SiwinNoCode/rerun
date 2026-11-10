@@ -390,6 +390,7 @@
     "taxNumberRequired": "Enter the number",
     "invalidBusinessDetails": "Invalid business details",
     "phoneRequired": "Confirm your phone number to keep going.",
+    "lifetimePlan": "This workspace is on the lifetime plan.",
     "engineWaitlist": "Every machine is taken right now. Your trial can start as soon as one frees up.",
     "invalidBillingInterval": "Invalid billing interval.",
     "checkoutOtherWorkspace": "This checkout belongs to another workspace",

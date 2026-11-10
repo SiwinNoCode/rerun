@@ -11,6 +11,7 @@ import {
     PLAN_CURRENCY,
     ZERO_QUANTITIES,
     basePriceCents,
+    isLifetimePlan,
     parsePriceArm,
     planPriceCents,
     quantitiesToColumns,
@@ -160,6 +161,10 @@ async function basePlanCheckoutParams(): Promise<{ params: Omit<Stripe.Checkout.
     // Before the customer: a refused account leaves no orphan behind in Stripe.
     const { session } = await getServerSession()
     if (session && (await isPhoneStepPending(createServiceRoleClient(), session.id))) throw new AppError('phoneRequired')
+    // The webhook writes the base plan over the workspace, so cancelling Pro later would take the
+    // lifetime access away with it.
+    const { data: current } = await selectSingle(createServiceRoleClient(), 'workspaces', ['plan'] as const, { id: await requireWorkspaceId() })
+    if (isLifetimePlan(current)) throw new AppError('lifetimePlan')
 
     const { workspaceId, customerId } = await ensureStripeCustomer()
     if (await resolveEngineWaitlist(workspaceId)) throw new AppError('engineWaitlist')

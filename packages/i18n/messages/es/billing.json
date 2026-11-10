@@ -199,6 +199,11 @@
             "title": "No se pudo cargar tu plan",
             "description": "Stripe no respondió. Tu suscripción sigue intacta, vuelve a intentarlo en un momento.",
             "retry": "Reintentar"
+        },
+        "lifetime": {
+            "title": "Plan de por vida",
+            "description": "Pagado una vez, tuyo para siempre. Coworkers y asientos ilimitados, con tu propia IA.",
+            "connectAi": "Conectar tu IA"
         }
     },
     "postPayment": {

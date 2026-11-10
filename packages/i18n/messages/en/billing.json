@@ -293,6 +293,11 @@
             "title": "Your plan could not be loaded",
             "description": "Stripe did not answer. Your subscription is untouched, try again in a moment.",
             "retry": "Retry"
+        },
+        "lifetime": {
+            "title": "Lifetime plan",
+            "description": "Paid once, yours for good. Unlimited coworkers and seats, running on your own AI.",
+            "connectAi": "Connect your AI"
         }
     },
     "postPayment": {

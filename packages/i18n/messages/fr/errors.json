@@ -386,6 +386,7 @@
     "taxNumberRequired": "Saisissez le numéro",
     "invalidBusinessDetails": "Informations d'entreprise invalides",
     "phoneRequired": "Confirmez votre numéro de téléphone pour continuer.",
+    "lifetimePlan": "Ce workspace est sur l'offre à vie.",
     "engineWaitlist": "Toutes les machines sont occupées pour le moment. Votre essai pourra démarrer dès qu'une se libère.",
     "invalidBillingInterval": "Périodicité de facturation invalide.",
     "checkoutOtherWorkspace": "Ce paiement appartient à un autre workspace",

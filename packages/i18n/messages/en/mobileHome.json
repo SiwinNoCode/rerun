@@ -35,10 +35,7 @@
         "askAnything": "Ask anything"
     },
     "header": {
-        "account": "Account",
-        "view": "View",
-        "recent": "Recent",
-        "byBox": "By box"
+        "account": "Account"
     },
     "account": {
         "preferences": "Preferences",
@@ -127,7 +124,6 @@
         "line.workingOn": "Status line under a coworker's name: it is running, {detail} is the title of its conversation or its description.",
         "line.asleepAbout": "Status line under a coworker's name: its machine is off, {about} is its description.",
         "foreman.askAnything": "Status line of Rerun, the workspace assistant, when it has no conversation yet.",
-        "header.byBox": "View option: the coworkers grouped by Box.",
         "account.subscriptionMessage": "{workspaces} is a comma-separated list of workspace names.",
         "workspace.untitled": "Fallback name of a workspace without a name.",
         "search.quotedAsk": "The text typed in the search field, quoted, under 'Ask Rerun'.",

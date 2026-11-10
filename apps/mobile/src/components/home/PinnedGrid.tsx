@@ -7,6 +7,7 @@ import { AgentBuddy } from '@/components/buddy/AgentBuddy'
 import { moodStatus, type HomeCoworker } from '@/components/home/board'
 import { usePaneSize } from '@/components/layout/PaneSize'
 import { columnsFor } from '@/components/layout/split'
+import { HOME_GUTTER } from '@/components/home/CoworkerRow'
 import { AppText } from '@/components/ui/AppText'
 import { moodOf } from '@/components/ui/CoworkerAvatar'
 import { UnreadDot } from '@/components/ui/UnreadDot'
@@ -24,7 +25,7 @@ export type PinnedCell = { width: number; disc: number; columns: number }
 // capped on a wide one.
 export function usePinnedCell(): PinnedCell {
     const { width } = usePaneSize()
-    const inner = width - 2 * spacing.xl
+    const inner = width - 2 * HOME_GUTTER
     const columns = columnsFor(inner, MIN_CELL, FEWEST_COLUMNS)
     const cellWidth = Math.floor(inner / columns)
     return { width: cellWidth, disc: Math.min(DISC_MAX, cellWidth - 2 * spacing.md), columns }
@@ -64,7 +65,7 @@ export function PinnedGrid({ coworkers, onOpen, onUnpin, onDetails, onEdit }: Pi
     const cell = usePinnedCell()
     const t = useTranslations('mobileHome')
     return (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.xl }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: HOME_GUTTER }}>
             {coworkers.map(coworker => (
                 <Host key={coworker.id} matchContents colorScheme={theme.scheme}>
                     <ContextMenu>

@@ -6,6 +6,7 @@ import { useTranslations } from 'use-intl'
 import { AppText } from '@/components/ui/AppText'
 import { EASE_OUT, MOTION } from '@/theme/motion'
 import { useTheme } from '@/theme/theme'
+import { HOME_GUTTER } from '@/components/home/CoworkerRow'
 import { spacing } from '@/theme/tokens'
 
 type SectionHeaderProps = {
@@ -22,7 +23,7 @@ export function SectionHeader({ label, count, collapsed, onToggle, divided, acti
     const t = useTranslations('mobileHome')
     const chevron = useAnimatedStyle(() => ({ transform: [{ rotate: withTiming(collapsed ? '-90deg' : '0deg', { duration: MOTION.fast, easing: EASE_OUT }) }] }))
     return (
-        <View style={{ paddingHorizontal: spacing.xl, paddingTop: divided ? spacing.md : 0 }}>
+        <View style={{ paddingHorizontal: HOME_GUTTER, paddingTop: divided ? spacing.md : 0 }}>
             {divided && <View style={{ height: 1, backgroundColor: theme.border, marginBottom: spacing.md }} />}
             {/* The action sits beside the toggle, not inside it, so VoiceOver reaches both. */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>

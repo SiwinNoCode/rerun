@@ -35,10 +35,7 @@
         "askAnything": "Pregunta lo que quieras"
     },
     "header": {
-        "account": "Cuenta",
-        "view": "Vista",
-        "recent": "Recientes",
-        "byBox": "Por Box"
+        "account": "Cuenta"
     },
     "account": {
         "preferences": "Preferencias",

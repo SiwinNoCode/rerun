@@ -11,6 +11,7 @@ import { useLocale, useTranslations } from 'use-intl'
 import { appBuild } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { askToDeleteAccount, askToLeaveServer, contactSupport, initialsOf } from '@/components/home/account-actions'
+import { useGroupMode, type GroupMode } from '@/components/home/useGroupMode'
 import { workspaceLabel } from '@/components/home/workspace-logos'
 import { AppText } from '@/components/ui/AppText'
 import { GlassButton, GLASS_BUTTON_SIZE } from '@/components/ui/GlassButton'
@@ -28,6 +29,11 @@ const APPEARANCES: { value: AppearancePreference; label: 'appearanceSystem' | 'a
     { value: 'dark', label: 'appearanceDark' },
 ]
 
+const GROUPINGS: { value: GroupMode; label: 'groupRecent' | 'groupByBox' }[] = [
+    { value: 'recent', label: 'groupRecent' },
+    { value: 'box', label: 'groupByBox' },
+]
+
 // Each language in its own words, whatever the current one: Hermes has no Intl.DisplayNames.
 const LANGUAGE_NAMES: Record<Locale, string> = { en: 'English', fr: 'Français', es: 'Español' }
 
@@ -40,6 +46,7 @@ export function PreferencesSheet() {
     const insets = useSafeAreaInsets()
     const { me, session, signOut } = useAuth()
     const [appearance, chooseAppearance] = useAppearancePreference()
+    const [group, chooseGroup] = useGroupMode()
     const push = usePushPermission().status
     const t = useTranslations('mobileSettings.preferences')
     const locale = useLocale()
@@ -93,6 +100,19 @@ export function PreferencesSheet() {
                 <Host matchContents={{ vertical: true }} colorScheme={theme.scheme} style={{ alignSelf: 'stretch' }}>
                     <Picker selection={appearance} onSelectionChange={chooseAppearance} modifiers={[pickerStyle('segmented')]}>
                         {APPEARANCES.map(option => (
+                            <Text key={option.value} modifiers={[tag(option.value)]}>
+                                {t(option.label)}
+                            </Text>
+                        ))}
+                    </Picker>
+                </Host>
+            </View>
+
+            <View style={{ gap: spacing.sm }}>
+                <SectionTitle>{t('coworkers')}</SectionTitle>
+                <Host matchContents={{ vertical: true }} colorScheme={theme.scheme} style={{ alignSelf: 'stretch' }}>
+                    <Picker selection={group} onSelectionChange={chooseGroup} modifiers={[pickerStyle('segmented')]}>
+                        {GROUPINGS.map(option => (
                             <Text key={option.value} modifiers={[tag(option.value)]}>
                                 {t(option.label)}
                             </Text>

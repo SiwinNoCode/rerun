@@ -9,6 +9,9 @@
         "appearanceSystem": "System",
         "appearanceLight": "Light",
         "appearanceDark": "Dark",
+        "coworkers": "Coworkers",
+        "groupRecent": "Recent",
+        "groupByBox": "By box",
         "language": "Language",
         "notifications": "Notifications",
         "pushOff": "Push off",
@@ -109,6 +112,7 @@
         "notifications.perCoworker.followsTasks": "Value of a coworker's row: it keeps the global setting but also follows the coworker's scheduled tasks.",
         "notifications.coworker.quotedScope": "Hint under the 'Your setting' option: the label of the global setting, quoted.",
         "notifications.coworker.scheduled": "{count} is the number of scheduled tasks of the coworker.",
-        "preferences.server": "Settings row showing the self-hosted Rerun server the app is connected to."
+        "preferences.server": "Settings row showing the self-hosted Rerun server the app is connected to.",
+        "preferences.groupByBox": "Option of the Coworkers picker: the Home lists the coworkers grouped by Box."
     }
 }

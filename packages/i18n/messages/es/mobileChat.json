@@ -145,14 +145,18 @@
         "conversations": "Conversaciones",
         "coworkerDetails": "Detalles del coworker",
         "earlier": "Anteriores",
+        "general": "General",
         "menuLabel": "{name}, {title}, conversaciones",
         "newChat": "Nuevo chat",
         "newConversation": "Nueva conversación",
+        "newThread": "Nuevo hilo",
         "sections": {
             "needs-you": "Te necesita",
             "new": "Sin leer",
             "running": "En curso"
-        }
+        },
+        "threadCount": "{count, plural, one {# hilo} other {# hilos}}",
+        "threads": "Hilos"
     },
     "markdown": {
         "code": "código",

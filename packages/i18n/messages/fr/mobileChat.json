@@ -145,14 +145,18 @@
         "conversations": "Conversations",
         "coworkerDetails": "Détails du coworker",
         "earlier": "Plus anciennes",
+        "general": "Général",
         "menuLabel": "{name}, {title}, conversations",
         "newChat": "Nouvelle discussion",
         "newConversation": "Nouvelle conversation",
+        "newThread": "Nouveau fil",
         "sections": {
             "needs-you": "Vous attend",
             "new": "Non lues",
             "running": "En cours"
-        }
+        },
+        "threadCount": "{count, plural, one {# fil} other {# fils}}",
+        "threads": "Fils"
     },
     "markdown": {
         "code": "code",

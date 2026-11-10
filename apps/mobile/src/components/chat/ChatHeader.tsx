@@ -1,6 +1,6 @@
 import { Button, Image, Menu, Section, Text, Toggle } from '@expo/ui/swift-ui'
 import { disabled } from '@expo/ui/swift-ui/modifiers'
-import type { SessionStatus } from '@rerun/contracts'
+import type { SessionKind, SessionStatus } from '@rerun/contracts'
 import { GlassView } from 'expo-glass-effect'
 import { SymbolView } from 'expo-symbols'
 import { View } from 'react-native'
@@ -32,7 +32,8 @@ const CHIP_MAX_WIDTH = 220
 // `loading` while the hub has not said yet what the conversation is called. `status`, `unseen` and
 // `ask` sort it into the menu's sections; without them it sits in a single list.
 // `automationName` and `updatedAt` are set on a scheduled or triggered run, whose title says what it did.
-export type ChatTab = { id: string; title: string | null; running: boolean; empty: boolean; loading?: boolean; status?: SessionStatus; unseen?: boolean; ask?: string | null; automationName?: string | null; updatedAt?: string }
+// `kind` is `general` on the coworker's General, pinned first: the others are then its threads.
+export type ChatTab = { id: string; title: string | null; running: boolean; empty: boolean; loading?: boolean; status?: SessionStatus; unseen?: boolean; ask?: string | null; automationName?: string | null; updatedAt?: string; kind?: SessionKind }
 
 // The draft the pager ends on, as the last page of the chip.
 const DRAFT_TAB: ChatTab = { id: 'draft', title: null, running: false, empty: true }
@@ -47,13 +48,15 @@ type ChipPageProps = {
     // The pager's position and this page's index: the page fades as it slides out of the chip.
     progress?: SharedValue<number>
     index?: number
+    untitled?: string
 }
 
 // One conversation inside the header's pill: the coworker's name over the conversation's title.
-export function ChipPage({ coworker, session, active, width, progress, index = 0 }: ChipPageProps) {
+export function ChipPage({ coworker, session, active, width, progress, index = 0, untitled }: ChipPageProps) {
     const theme = useTheme()
     const t = useTranslations('mobileChat.header')
-    const title = session.title ?? t('newConversation')
+    const general = session.kind === 'general'
+    const title = general ? t('general') : (session.title ?? untitled ?? t('newConversation'))
     const settledDistance = active ? 0 : 1
     const fade = useAnimatedStyle(() => {
         const distance = progress ? Math.abs(progress.value - index) : settledDistance
@@ -68,19 +71,21 @@ export function ChipPage({ coworker, session, active, width, progress, index = 0
                 {session.loading ? (
                     <Skeleton style={{ width: 96, height: 12, marginVertical: 3 }} />
                 ) : (
-                    <Animated.Text key={title} entering={FadeIn.duration(400)} numberOfLines={1} maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.medium, fontSize: 14, lineHeight: 18, letterSpacing: -0.2, textAlign: 'center', color: session.title ? theme.foreground : theme.mutedForeground }}>
-                        {title}
-                    </Animated.Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '100%' }}>
+                        {general && <SymbolView name="bubble.left.and.bubble.right.fill" size={12} tintColor={theme.foreground} />}
+                        <Animated.Text key={title} entering={FadeIn.duration(400)} numberOfLines={1} maxFontSizeMultiplier={1.2} style={{ flexShrink: 1, fontFamily: fonts.medium, fontSize: 14, lineHeight: 18, letterSpacing: -0.2, textAlign: 'center', color: general || session.title ? theme.foreground : theme.mutedForeground }}>
+                            {title}
+                        </Animated.Text>
+                    </View>
                 )}
             </View>
         </Animated.View>
     )
 }
 
-function ConversationItem({ session, active, onSelect }: { session: ChatTab; active: boolean; onSelect: (sessionId: string) => void }) {
-    const t = useTranslations('mobileChat.header')
+function ConversationItem({ session, active, untitled, onSelect }: { session: ChatTab; active: boolean; untitled: string; onSelect: (sessionId: string) => void }) {
     const times = useMessageTimes()
-    const title = session.title ?? t('newConversation')
+    const title = session.title ?? untitled
     if (active) return <Toggle label={title} isOn onIsOnChange={() => {}} />
     const glyph = glyphOf(session)
     const subtitle = (stateOf(session) === 'needs-you' ? session.ask : null) ?? automationLine(session, times.stamp)
@@ -99,14 +104,15 @@ function automationLine({ title, automationName, updatedAt }: ChatTab, stamp: (i
     return [automationName !== title && automationName, stamp(updatedAt)].filter(Boolean).join(' · ')
 }
 
-function ConversationsMenu({ sessions, activeId, onSelect }: { sessions: ChatTab[]; activeId: string | undefined; onSelect: (sessionId: string) => void }) {
+function ConversationsMenu({ sessions, activeId, threaded, onSelect }: { sessions: ChatTab[]; activeId: string | undefined; threaded: boolean; onSelect: (sessionId: string) => void }) {
     const t = useTranslations('mobileChat.header')
     const { sections, earlier } = conversationSections(sessions)
+    const untitled = threaded ? t('newThread') : t('newConversation')
     if (sections.length === 0) {
         return (
-            <Menu label={t('conversations')}>
+            <Menu label={threaded ? t('threads') : t('conversations')}>
                 {sessions.map(session => (
-                    <Toggle key={session.id} label={session.title ?? t('newConversation')} isOn={session.id === activeId} onIsOnChange={() => onSelect(session.id)} />
+                    <Toggle key={session.id} label={session.title ?? untitled} isOn={session.id === activeId} onIsOnChange={() => onSelect(session.id)} />
                 ))}
             </Menu>
         )
@@ -116,15 +122,15 @@ function ConversationsMenu({ sessions, activeId, onSelect }: { sessions: ChatTab
             {sections.map(section => (
                 <Section key={section.state} title={t(`sections.${section.state}`)}>
                     {section.conversations.map(session => (
-                        <ConversationItem key={session.id} session={session} active={session.id === activeId} onSelect={onSelect} />
+                        <ConversationItem key={session.id} session={session} active={session.id === activeId} untitled={untitled} onSelect={onSelect} />
                     ))}
                 </Section>
             ))}
             {earlier.length > 0 && (
                 <Section title={t('earlier')}>
-                    <Menu label={t('conversationCount', { count: earlier.length })}>
+                    <Menu label={threaded ? t('threadCount', { count: earlier.length }) : t('conversationCount', { count: earlier.length })}>
                         {earlier.map(session => (
-                            <ConversationItem key={session.id} session={session} active={session.id === activeId} onSelect={onSelect} />
+                            <ConversationItem key={session.id} session={session} active={session.id === activeId} untitled={untitled} onSelect={onSelect} />
                         ))}
                     </Menu>
                 </Section>
@@ -157,9 +163,13 @@ export function ChatHeader({ coworker, tabs, activeId, progress, allSessions, on
     const { width: paneWidth } = usePaneSize()
     const chipWidth = Math.min(CHIP_MAX_WIDTH, paneWidth - 2 * (spacing.lg + GLASS_BUTTON_SIZE + spacing.sm))
     const hasConversations = tabs.length > 0
+    const general = tabs[0]?.kind === 'general' ? tabs[0] : null
+    const untitled = general ? t('newThread') : t('newConversation')
+    // General sits as its own item of the menu; the submenu lists the rest, and is left out while empty.
+    const listed = general ? allSessions.filter(session => session.kind !== 'general') : allSessions
     const pages = [...tabs, DRAFT_TAB]
     const activeIndex = hasConversations && activeId ? tabs.findIndex(session => session.id === activeId) : tabs.length
-    const activeTitle = tabs[activeIndex]?.title ?? t('newConversation')
+    const activeTitle = tabs[activeIndex]?.kind === 'general' ? t('general') : (tabs[activeIndex]?.title ?? untitled)
     const running = tabs[activeIndex]?.running ?? false
     const track = useAnimatedStyle(() => ({ transform: [{ translateX: hasConversations ? -progress.value * chipWidth : 0 }] }))
     const menuOpens = hasConversations || Boolean(onOpenDetails)
@@ -171,7 +181,7 @@ export function ChatHeader({ coworker, tabs, activeId, progress, allSessions, on
                 <View style={{ width: chipWidth, height: PILL_HEIGHT, overflow: 'hidden' }}>
                     <Animated.View style={[{ flexDirection: 'row', width: pages.length * chipWidth }, track]}>
                         {pages.map((session, index) => (
-                            <ChipPage key={session.id} coworker={coworker} session={hasConversations ? session : { ...session, title: t('newChat') }} active={index === activeIndex} width={chipWidth} progress={hasConversations ? progress : undefined} index={index} />
+                            <ChipPage key={session.id} coworker={coworker} session={hasConversations ? session : { ...session, title: t('newChat') }} active={index === activeIndex} width={chipWidth} progress={hasConversations ? progress : undefined} index={index} untitled={untitled} />
                         ))}
                     </Animated.View>
                     {menuOpens && (
@@ -193,8 +203,9 @@ export function ChatHeader({ coworker, tabs, activeId, progress, allSessions, on
                     {menuOpens ? (
                         <NativeMenu label={t('menuLabel', { name: coworker.name, title: activeTitle })} trigger={identity}>
                             {onOpenDetails && <Button label={t('coworkerDetails')} systemImage="info.circle" onPress={onOpenDetails} />}
-                            {hasConversations && <Button label={t('newConversation')} systemImage="plus" onPress={onNewSession} modifiers={[disabled(!activeId)]} />}
-                            {hasConversations && <ConversationsMenu sessions={allSessions} activeId={activeId} onSelect={onSelect} />}
+                            {hasConversations && <Button label={untitled} systemImage="plus" onPress={onNewSession} modifiers={[disabled(!activeId)]} />}
+                            {general && <Toggle label={t('general')} systemImage="bubble.left.and.bubble.right" isOn={activeId === general.id} onIsOnChange={() => onSelect(general.id)} />}
+                            {listed.length > 0 && <ConversationsMenu sessions={listed} activeId={activeId} threaded={Boolean(general)} onSelect={onSelect} />}
                         </NativeMenu>
                     ) : (
                         identity

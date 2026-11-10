@@ -145,14 +145,18 @@
         "conversations": "Conversations",
         "coworkerDetails": "Coworker details",
         "earlier": "Earlier",
+        "general": "General",
         "menuLabel": "{name}, {title}, conversations",
         "newChat": "New chat",
         "newConversation": "New conversation",
+        "newThread": "New thread",
         "sections": {
             "needs-you": "Needs you",
             "new": "Unread",
             "running": "Running"
-        }
+        },
+        "threadCount": "{count, plural, one {# thread} other {# threads}}",
+        "threads": "Threads"
     },
     "markdown": {
         "code": "code",

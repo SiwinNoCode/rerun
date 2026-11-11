@@ -22,6 +22,7 @@ import {
     FocusCenterIcon,
     FolderIcon,
     FlagIcon,
+    GaugeIcon,
     GlobeIcon,
     HistoryIcon,
     HeartIcon,
@@ -113,6 +114,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
     team_list_triggers: WebhookIcon,
     team_list_runs: HistoryIcon,
     team_get_run: HistoryIcon,
+    ai_status: GaugeIcon,
 
     schedule_list: CalendarIcon,
     schedule_create: CalendarIcon,

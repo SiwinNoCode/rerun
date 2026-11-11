@@ -271,6 +271,11 @@
                 "blurb": "Lê rotinas e execuções deles",
                 "help": "Permite que o coworker consulte os outros coworkers do workspace: status, tarefas agendadas, gatilhos e execuções recentes, com as ferramentas que cada execução chamou quando precisa entender uma falha. Ele não pode mudar nada. Uma execução pode conter dados dos apps conectados do outro coworker."
             },
+            "aiProviders": {
+                "label": "Ver seus provedores de IA",
+                "blurb": "Modelo em uso, crédito e cotas",
+                "help": "Permite que o coworker saiba em qual provedor de IA e modelo ele roda, quais outros provedores estão conectados ao workspace e quanto resta em cada um: o crédito Rerun e os limites de uma assinatura Claude, Codex ou OpenCode. Ele não pode mudar nada."
+            },
             "askUser": {
                 "label": "Fazer perguntas a você",
                 "blurb": "Pausa para perguntar com opções de resposta",

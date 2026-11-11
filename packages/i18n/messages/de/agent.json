@@ -271,6 +271,11 @@
                 "blurb": "Ihre Routinen und Ausführungen lesen",
                 "help": "Erlaubt dem Coworker, die anderen Coworker des Workspace einzusehen: ihren Status, geplante Aufgaben, Auslöser und letzte Ausführungen, samt den Tools, die jede Ausführung aufgerufen hat, wenn er einen Fehler verstehen muss. Er kann nichts ändern. Eine Ausführung kann Daten aus den verbundenen Apps des anderen Coworkers enthalten."
             },
+            "aiProviders": {
+                "label": "Eigene KI-Anbieter sehen",
+                "blurb": "Aktives Modell, Guthaben und Kontingente",
+                "help": "Erlaubt dem Coworker zu sehen, mit welchem KI-Anbieter und welchem Modell er läuft, welche anderen Anbieter mit dem Workspace verbunden sind und was bei jedem übrig ist: das Rerun-Guthaben und die Limits eines Claude-, Codex- oder OpenCode-Abos. Er kann nichts ändern."
+            },
             "askUser": {
                 "label": "Dir Fragen stellen",
                 "blurb": "Anhalten und mit Antwortoptionen fragen",

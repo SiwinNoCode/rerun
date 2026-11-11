@@ -1,6 +1,7 @@
 import { FOREMAN_AGENT_ID, FOREMAN_HUB_TOKEN_HEADER } from '@rerun/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { readRerunCredit } from '@/app/api/_services/ai-status-hub.service'
 import { dispatchAccountTool } from '@/app/api/_services/mcp-account.service'
 import { dispatchHubTool } from '@/app/api/_services/services.service'
 import { dispatchTeamHubTool } from '@/app/api/_services/team-hub.service'
@@ -13,6 +14,7 @@ import { POST } from './route'
 vi.mock('@/app/api/_services/workspace-engine.service', () => ({ authenticateEngineToken: vi.fn() }))
 vi.mock('@/app/api/_services/services.service', () => ({ dispatchHubTool: vi.fn() }))
 vi.mock('@/app/api/_services/team-hub.service', async () => ({ dispatchTeamHubTool: vi.fn(), isTeamHubTool: (name: string) => name.startsWith('team_') }))
+vi.mock('@/app/api/_services/ai-status-hub.service', () => ({ readRerunCredit: vi.fn(), isAiStatusHubTool: (name: string) => name === 'rerun_credit' }))
 vi.mock('@/app/api/_services/mcp-account.service', () => ({ dispatchAccountTool: vi.fn() }))
 vi.mock('@/app/api/_auth/ownership', () => ({ workspaceFounderUserId: vi.fn().mockResolvedValue('founder') }))
 vi.mock('@/lib/foreman/onboarding-tools', () => ({ dispatchWorkspaceOnboardingTool: vi.fn() }))
@@ -102,6 +104,18 @@ describe('POST /api/hub', () => {
         expect(dispatchTeamHubTool).toHaveBeenCalledWith('agent-1', WORKSPACE_ID, 'team_status', {})
         expect(dispatchHubTool).not.toHaveBeenCalled()
         expect(dispatchAccountTool).not.toHaveBeenCalled()
+    })
+
+    it('answers a coworker asking for the Rerun credit of the workspace its engine key names', async () => {
+        vi.mocked(selectMaybeSingle).mockResolvedValue({ data: { id: 'agent-1' }, error: null })
+        vi.mocked(readRerunCredit).mockResolvedValue({ credit: null })
+
+        const response = await POST(hubRequest({ agent: 'engine-agent', body: { tool: 'rerun_credit', args: {} } }))
+
+        expect(response.status).toBe(200)
+        expect(await response.json()).toEqual({ credit: null })
+        expect(readRerunCredit).toHaveBeenCalledWith(WORKSPACE_ID)
+        expect(dispatchHubTool).not.toHaveBeenCalled()
     })
 
     it('routes the foreman to its own belt, scoped to the workspace of the engine key', async () => {

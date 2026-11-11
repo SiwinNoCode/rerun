@@ -8,7 +8,7 @@ const LABELLED_TOOLS = [
     'leads_email_find', 'leads_email_verify', 'leads_phone_find', 'google_serp', 'google_maps_search', 'paid_data', 'paid_data_catalog',
     'paid_data_read', 'download', 'memory_write', 'memory_recall', 'brain_search', 'brain_read', 'brain_propose', 'brain_write', 'brain_delete',
     'brain_proposals', 'brain_decide', 'vision_analyze', 'delegate_tasks', 'call_agent', 'team_status', 'team_list_schedules', 'team_list_triggers',
-    'team_list_runs', 'team_get_run', 'schedule_list', 'schedule_create', 'schedule_update', 'schedule_delete', 'trigger_list', 'trigger_create',
+    'team_list_runs', 'team_get_run', 'ai_status', 'schedule_list', 'schedule_create', 'schedule_update', 'schedule_delete', 'trigger_list', 'trigger_create',
     'trigger_get', 'trigger_update', 'trigger_rotate_token', 'trigger_delete', 'skill_list', 'skill_read', 'skill_read_file', 'skill_write_file',
     'skill_delete_file', 'skill_create', 'skill_import', 'skill_edit', 'skill_update', 'skill_delete', 'skill_propose', 'soul_update',
     'verbosity_set', 'tool_install', 'mcp_register', 'mcp_login', 'mcp_login_complete', 'mcp_status', 'card_table', 'card_file', 'image_generation', 'table_view_save',
@@ -31,7 +31,7 @@ const ACTIVE_TOOLS = [
     'shared_search', 'browser_navigate', 'computer', 'computer_open_app', 'web_fetch', 'web_search', 'WebSearch', 'leads_people_search',
     'leads_email_find', 'leads_email_verify', 'leads_phone_find', 'google_serp', 'google_maps_search', 'download', 'memory_write', 'memory_recall',
     'brain_search', 'brain_read', 'brain_propose', 'brain_write', 'vision_analyze', 'image_generation', 'delegate_tasks', 'call_agent', 'team_status', 'team_list_runs',
-    'team_get_run', 'skill_read', 'skill_read_file', 'skill_create', 'skill_edit', 'skill_update', 'rerun_hub_service_search',
+    'team_get_run', 'ai_status', 'skill_read', 'skill_read_file', 'skill_create', 'skill_edit', 'skill_update', 'rerun_hub_service_search',
     'rerun_hub_service_install', 'list_agents', 'create_agent', 'update_agent', 'send_message', 'build_team', 'search_docs', 'analyze_website',
     'list_templates', 'propose_plan', 'install_template',
 ] as const

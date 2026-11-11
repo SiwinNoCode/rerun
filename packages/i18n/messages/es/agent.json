@@ -271,6 +271,11 @@
                 "blurb": "Leer sus rutinas y runs",
                 "help": "Permite al coworker consultar a los demás coworkers del workspace: su estado, tareas programadas, triggers y runs recientes, con las herramientas que llamó cada run cuando necesita entender un fallo. No puede cambiar nada. Un run puede contener datos de las apps conectadas del otro coworker."
             },
+            "aiProviders": {
+                "label": "Ver sus proveedores de IA",
+                "blurb": "Modelo en uso, crédito y cuotas",
+                "help": "Permite al coworker saber con qué proveedor de IA y qué modelo funciona, qué otros proveedores están conectados al workspace y cuánto queda en cada uno: el crédito de Rerun y los límites de una suscripción de Claude, Codex u OpenCode. No puede cambiar nada."
+            },
             "askUser": {
                 "label": "Hacerte preguntas",
                 "blurb": "Pausar para preguntar con opciones",

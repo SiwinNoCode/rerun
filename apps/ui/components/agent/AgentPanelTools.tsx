@@ -9,7 +9,7 @@ import { useCanManageAgent } from '@/hooks/useBoxAccess'
 import { useBoxManageReason } from '@/hooks/useBoxManageReason'
 import { ENGINE_SELF_IMPROVEMENT_KEYS } from '@/lib/engine/constants'
 import type { EngineSelfImprovement, EngineToolFamily } from '@/lib/engine/types'
-import { ActivityIcon, BrainIcon, CalendarClockIcon, CardsIcon, CircleCheckIcon, CoinsIcon, DatabaseIcon, FolderIcon, GlobeIcon, InfoIcon, LayersIcon, Loader2Icon, LockIcon, type LucideIcon, MessageCircleQuestionIcon, MonitorIcon, QuickReplyIcon, TerminalIcon, UsersIcon, WandSparklesIcon, WebhookIcon, WrenchIcon } from '@/lib/icons'
+import { ActivityIcon, BrainIcon, CalendarClockIcon, CardsIcon, CircleCheckIcon, CoinsIcon, DatabaseIcon, FolderIcon, GaugeIcon, GlobeIcon, InfoIcon, LayersIcon, Loader2Icon, LockIcon, type LucideIcon, MessageCircleQuestionIcon, MonitorIcon, QuickReplyIcon, TerminalIcon, UsersIcon, WandSparklesIcon, WebhookIcon, WrenchIcon } from '@/lib/icons'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PanelGrid, PanelListHeader, PanelScroller } from '@/components/ui/panel-list'
 import { PANEL_CARD, PANEL_CARD_INTERACTIVE } from '@/components/ui/panel-row'
@@ -47,6 +47,7 @@ const CAPABILITY_ICONS = {
     trigger: WebhookIcon,
     callAgent: UsersIcon,
     team: ActivityIcon,
+    aiProviders: GaugeIcon,
     askUser: MessageCircleQuestionIcon,
     requestApproval: CircleCheckIcon,
     cards: CardsIcon,

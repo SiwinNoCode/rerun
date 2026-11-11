@@ -350,6 +350,11 @@
                 "blurb": "Read their routines and runs",
                 "help": "Lets the coworker check the other coworkers of the workspace: their status, scheduled tasks, triggers and recent runs, with the tools each run called when it needs to understand a failure. It cannot change anything. A run can hold data from the other coworker's connected apps."
             },
+            "aiProviders": {
+                "label": "See its AI providers",
+                "blurb": "Model in use, credit and quotas",
+                "help": "Lets the coworker check which AI provider and model it runs on, the other providers connected to the workspace, and what is left on each: the Rerun credit and the limits of a Claude, Codex or OpenCode subscription. It cannot change anything."
+            },
             "askUser": {
                 "label": "Ask you questions",
                 "blurb": "Pause to ask with answer options",

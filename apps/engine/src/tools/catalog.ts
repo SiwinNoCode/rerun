@@ -15,6 +15,7 @@ import { triggerTools } from './builtin/trigger.js'
 import { delegateTools } from './builtin/delegate.js'
 import { callAgentTools } from './builtin/call-agent.js'
 import { teamTools } from './builtin/team.js'
+import { aiStatusTools } from './builtin/ai-status.js'
 import { browserTools } from './builtin/browser.js'
 import { visionTools } from './builtin/vision.js'
 import { computerTools } from './builtin/computer.js'
@@ -54,6 +55,7 @@ const FAMILIES: FamilyDef[] = [
     { family: 'delegate', description: 'Spawn an ephemeral sub-coworker to run a self-contained subtask to completion.', build: delegateTools, enabled: c => c.tools.delegate },
     { family: 'callAgent', description: 'Message another persistent coworker on this engine, named with @name in the instructions.', build: callAgentTools, enabled: c => c.tools.callAgent },
     { family: 'team', description: 'Read the other coworkers of the workspace: their status, scheduled tasks, triggers and recent runs, without changing anything.', build: teamTools, enabled: c => c.tools.team },
+    { family: 'aiProviders', description: 'See which AI provider and model it runs on, the other providers connected to the workspace, and the Rerun credit or subscription quota left on each.', build: aiStatusTools, enabled: c => c.tools.aiProviders },
     { family: 'browser', description: 'Navigate JavaScript-heavy or bot-protected pages with a real Chromium browser, capture screenshots, and hand the browser to the user for a sign-in or a captcha.', build: ctx => ({ ...browserTools(ctx), ...(desktopEnabled() ? requestTakeoverTool(ctx) : {}) }), enabled: c => c.tools.browser },
     { family: 'vision', description: 'Analyze workspace images with the coworker multimodal model.', build: visionTools, enabled: c => c.tools.vision },
     { family: 'computer', description: 'See and drive its own computer screen: take screenshots, click, type and scroll in the browser, the file manager and the terminal, while the user watches.', build: ctx => computerTools(ctx).tools, enabled: c => c.tools.computer, hidden: () => !desktopEnabled() },

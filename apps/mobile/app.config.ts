@@ -36,6 +36,33 @@ function assertStoreBuildHasHub(): void {
     throw new Error(`Store build "${process.env.EAS_BUILD_PROFILE}" has no hub to point at: set ${missing.join(', ')} in its EAS environment.`)
 }
 
+// Firebase's file for Android push, Rerun's in the private cloud/ folder. Without it the app builds and
+// runs on Android, it just never gets a push token (the same as iOS without an EAS project). The Google
+// Services Gradle plugin refuses a file that does not name the app's package, so a build whose package
+// the file does not list (the development client, until it is declared in the Firebase project) goes
+// without it too.
+const RERUN_GOOGLE_SERVICES = `${__dirname}/../../cloud/apps/mobile/google-services.json`
+
+type GoogleServices = { client?: { client_info?: { android_client_info?: { package_name?: string } } }[] }
+
+function googleServicesName(androidPackage: string | undefined): boolean {
+    const { client = [] } = JSON.parse(readFileSync(RERUN_GOOGLE_SERVICES, 'utf8')) as GoogleServices
+    return client.some(entry => entry.client_info?.android_client_info?.package_name === androidPackage)
+}
+
+function withGoogleServices(config: ConfigContext['config']): ConfigContext['config'] {
+    if (!existsSync(RERUN_GOOGLE_SERVICES) || !googleServicesName(config.android?.package)) return config
+    return { ...config, android: { ...config.android, googleServicesFile: RERUN_GOOGLE_SERVICES } }
+}
+
+// The Android development client installs beside the store app, as `build.rerun.app.dev`.
+const androidDevClient = process.env.RERUN_ANDROID_DEV_CLIENT === '1'
+
+function withAndroidDevClient(config: ConfigContext['config']): ConfigContext['config'] {
+    if (!androidDevClient) return config
+    return { ...config, android: { ...config.android, package: `${config.android?.package}.dev` } }
+}
+
 // A free Apple ID (personal team) cannot claim a bundle ID some other team may own. Local dev builds
 // set RERUN_PERSONAL_TEAM=1 so they install on a real iPhone without a paid Apple Developer account.
 // Store builds leave it unset. Such a team cannot sign the push capability either, so its builds leave
@@ -56,7 +83,7 @@ function withLanguages(config: ConfigContext['config']): ConfigContext['config']
 
 export default ({ config: base }: ConfigContext): ExpoConfig => {
     assertStoreBuildHasHub()
-    const config = withLanguages(withEasProject(base))
+    const config = withGoogleServices(withAndroidDevClient(withLanguages(withEasProject(base))))
     if (!personalTeam) return config as ExpoConfig
 
     return {

@@ -15,6 +15,7 @@ import { Onboarding, type LeadStarted } from '@/components/onboarding/Onboarding
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell'
 import { useOnboardingRoute } from '@/components/onboarding/useOnboardingRoute'
 import { WaitlistNotice } from '@/components/onboarding/widgets/TeamCards'
+import { SystemDialogHost } from '@/components/ui/system-dialogs'
 import { UpdateRequired } from '@/components/update/UpdateRequired'
 import { useUpdateRequired } from '@/components/update/useUpdateRequired'
 import { MediaViewerHost } from '@/components/viewer/MediaViewerHost'
@@ -25,6 +26,7 @@ import { posthog } from '@/lib/analytics'
 import { MockStore } from '@/mocks/store'
 import { PushRouting } from '@/notifications/PushRouting'
 import { useAppearanceLoaded } from '@/theme/appearance'
+import { ReducedMotionOverride } from '@/theme/ReducedMotionOverride'
 import { useColorSchemeName } from '@/theme/theme'
 import { brand, palette } from '@/theme/tokens'
 
@@ -158,6 +160,7 @@ function App() {
                                 </Stack>
                             </SplitShell>
                             <MediaViewerHost />
+                            <SystemDialogHost />
                         </InboxProvider>
                     </MockStore>
                 )}
@@ -169,6 +172,8 @@ function App() {
 export default function RootLayout() {
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
+            {/* Before App, whose first render waits on the fonts: the screens it mounts then already read it. */}
+            <ReducedMotionOverride />
             <AuthProvider>
                 <I18nProvider>
                     <App />
